@@ -10,29 +10,21 @@ interface StatsCardProps {
 
 export default function StatsCard({ title, value, icon, trend, trendDirection }: StatsCardProps) {
   return (
-    <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+    <div className="card bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-32">
+      <div className="flex justify-between items-start">
         <div>
-          <h3 style={{ color: "var(--text-secondary)", fontSize: "0.875rem", fontWeight: 500, marginBottom: "0.25rem" }}>
-            {title}
-          </h3>
-          <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)" }}>
-            {value}
-          </div>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">{title}</h3>
+          <div className="text-2xl font-bold text-gray-900">{value}</div>
         </div>
-        <div style={{ padding: "8px", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: "8px", color: "var(--accent)" }}>
+        <div className="p-2 bg-gray-50 rounded-full text-gray-400">
           {icon}
         </div>
       </div>
       {trend && (
-        <div style={{ 
-          fontSize: "0.875rem", 
-          display: "flex", 
-          alignItems: "center", 
-          gap: "0.25rem",
-          color: trendDirection === "up" ? "var(--success)" : trendDirection === "down" ? "var(--error)" : "var(--text-secondary)" 
-        }}>
-          {trendDirection === "up" ? "↑" : trendDirection === "down" ? "↓" : "→"} {trend}
+        <div className={`text-xs font-semibold flex items-center gap-1 ${trendDirection === "up" ? "text-emerald-600" : trendDirection === "down" ? "text-red-500" : "text-gray-500"
+          }`}>
+          {trendDirection === "up" ? "↑" : trendDirection === "down" ? "↓" : "→"}
+          <span className="font-medium ml-1">{trend}</span>
         </div>
       )}
     </div>

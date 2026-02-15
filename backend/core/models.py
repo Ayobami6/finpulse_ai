@@ -13,6 +13,7 @@ class LogEntry(models.Model):
 class ChatEntry(models.Model):
     timestamp = models.DateTimeField()
     source = models.CharField(max_length=50) # "whatsapp", "freshchat"
+    external_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     sender_id = models.CharField(max_length=255)
     message = models.TextField()
     sentiment_score = models.FloatField(null=True, blank=True)
@@ -22,6 +23,14 @@ class ChatEntry(models.Model):
     def __str__(self):
         return f"{self.source} - {self.sender_id}"
 
+class IngestionLog(models.Model):
+    source = models.CharField(max_length=50, unique=True) # "whatsapp", "freshchat"
+    last_polled_at = models.DateTimeField(auto_now=True)
+    offset = models.CharField(max_length=255, blank=True, null=True) # Cursor or ID for pagination
+    
+    def __str__(self):
+        return f"{self.source} - {self.last_polled_at}"
+
 class IssueCluster(models.Model):
     theme = models.CharField(max_length=255) # "Transfer Failed"
     description = models.TextField()
@@ -29,6 +38,7 @@ class IssueCluster(models.Model):
     trend = models.CharField(max_length=10, choices=[('UP', 'Up'), ('DOWN', 'Down'), ('STABLE', 'Stable')])
     sentiment_score = models.FloatField()
     sample_messages = models.JSONField(default=list)
+    root_cause_analysis = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

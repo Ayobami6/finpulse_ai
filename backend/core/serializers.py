@@ -22,6 +22,7 @@ class IssueClusterSerializer(serializers.ModelSerializer):
     class Meta:
         model = IssueCluster
         fields = '__all__'
+        read_only_fields = ['root_cause_analysis', 'metadata']
 
 class TeamMemberSerializer(serializers.ModelSerializer):
     class Meta:
