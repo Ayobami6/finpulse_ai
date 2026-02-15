@@ -40,9 +40,11 @@ export default function Sidebar() {
 
       <aside className={clsx(styles.sidebar, { [styles.open]: isOpen })}>
         <div className={styles.logo}>
-          <LayoutDashboard size={28} className="text-emerald-500" />
+          <LayoutDashboard size={28} className="text-white" />
           <span>FinPulse AI</span>
+          <span className="text-xs font-normal opacity-70 block mt-1">Intelligent Operations</span>
         </div>
+
         <nav className={styles.nav}>
           {navItems.map((item) => {
             const isActive = pathname === item.href;
@@ -61,6 +63,16 @@ export default function Sidebar() {
             );
           })}
         </nav>
+
+        <div className={styles.userProfile}>
+          <div className="w-8 h-8 rounded-full bg-indigo-400 flex items-center justify-center text-white font-bold">
+            A
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-white">Admin User</span>
+            <span className="text-xs text-indigo-200">admin@finpulse.ai</span>
+          </div>
+        </div>
       </aside>
     </>
   );

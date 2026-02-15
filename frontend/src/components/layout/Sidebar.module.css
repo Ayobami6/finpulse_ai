@@ -1,36 +1,35 @@
 .sidebar {
-  width: 280px;
+  width: 260px;
   height: 100vh;
-  background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, #6366f1 0%, #4338ca 100%);
+  /* Purple/Indigo gradient */
+  border-right: none;
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
-  position: fixed;
-  left: 0;
-  top: 0;
+  /* Removed position: fixed to allow flex layout in parent to work correctly on desktop */
+  flex-shrink: 0;
   z-index: 50;
   transition: transform 0.3s ease-in-out;
+  color: white;
 }
 
 .logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  margin-bottom: 2.5rem;
 }
 
-.logo span {
-  color: var(--accent);
+.logo span:first-of-type {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  display: block;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1;
 }
 
 .navLink {
@@ -39,19 +38,30 @@
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.7);
   transition: all 0.2s ease;
   font-weight: 500;
+  font-size: 0.9rem;
 }
 
-.navLink:hover,
-.navLinkActive {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--accent);
+.navLink:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .navLinkActive {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
   font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .mobileToggle {
@@ -60,26 +70,30 @@
   top: 1rem;
   left: 1rem;
   z-index: 60;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: white;
+  border: 1px solid #e2e8f0;
   padding: 0.5rem;
   border-radius: 0.5rem;
   cursor: pointer;
-  color: var(--text-primary);
+  color: #4b5563;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .overlay {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
     transform: translateX(-100%);
   }
 
   .sidebar.open {
     transform: translateX(0);
-    box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
   }
 
   .mobileToggle {

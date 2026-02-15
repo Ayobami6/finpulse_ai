@@ -19,7 +19,7 @@ export default function ComponentImpactChart({ data }: ComponentImpactChartProps
     }
 
     return (
-        <div className="w-full h-80">
+        <div className="w-full h-64">
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
