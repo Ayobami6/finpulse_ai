@@ -59,15 +59,14 @@ export default function IssueCard({ cluster }: IssueCardProps) {
                     )}
                 </div>
             </div>
-        </div>
 
-            {/* Correlation Detail */ }
-    <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
-        <p>{cluster.correlation_detail || "Analyzing correlation data..."}</p>
-    </div>
+            {/* Correlation Detail */}
+            <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
+                <p>{cluster.correlation_detail || "Analyzing correlation data..."}</p>
+            </div>
 
 
-    {/* Stats Row */ }
+            {/* Stats Row */}
             <div className="flex items-center gap-6 mb-4 text-sm text-gray-500">
                 <div className="flex items-center gap-1.5 font-medium text-gray-700">
                     <BarChart2 size={16} className="text-blue-500" />
@@ -84,26 +83,26 @@ export default function IssueCard({ cluster }: IssueCardProps) {
 
             <div className="border-t border-gray-100 my-4"></div>
 
-    {/* Root Cause */ }
-    <div className="mb-4">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Root Cause:</h4>
-        <p className="text-sm text-gray-700 leading-relaxed">
-            {cluster.root_cause_analysis || "No root cause identified yet."}
-        </p>
-    </div>
+            {/* Root Cause */}
+            <div className="mb-4">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Root Cause:</h4>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                    {cluster.root_cause_analysis || "No root cause identified yet."}
+                </p>
+            </div>
 
-    {/* Actions */ }
-    <div className="flex gap-3 mt-4">
-        <button className="px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-medium rounded border border-gray-200 hover:bg-gray-100 transition-colors">
-            View Details
-        </button>
-        <button className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-medium rounded border border-emerald-100 hover:bg-emerald-100 transition-colors">
-            Create Ticket
-        </button>
-        <button className="px-3 py-1.5 bg-purple-50 text-purple-600 text-xs font-medium rounded border border-purple-100 hover:bg-purple-100 transition-colors">
-            Send Alert
-        </button>
-    </div>
+            {/* Actions */}
+            <div className="flex gap-3 mt-4">
+                <button className="px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-medium rounded border border-gray-200 hover:bg-gray-100 transition-colors">
+                    View Details
+                </button>
+                <button className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-medium rounded border border-emerald-100 hover:bg-emerald-100 transition-colors">
+                    Create Ticket
+                </button>
+                <button className="px-3 py-1.5 bg-purple-50 text-purple-600 text-xs font-medium rounded border border-purple-100 hover:bg-purple-100 transition-colors">
+                    Send Alert
+                </button>
+            </div>
         </div >
     );
 }
