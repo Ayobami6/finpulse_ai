@@ -1,5 +1,4 @@
-"use client";
-
+import { Stack, Text } from "@chakra-ui/react";
 import IssueCard, { IssueCluster } from "./IssueCard";
 
 interface IssueClusterListProps {
@@ -8,14 +7,14 @@ interface IssueClusterListProps {
 
 export default function IssueClusterList({ clusters }: IssueClusterListProps) {
     if (!clusters || clusters.length === 0) {
-        return <div className="text-gray-400 italic">No issues detected.</div>
+        return <Text color="gray.500" fontStyle="italic">No issues detected.</Text>
     }
 
     return (
-        <div className="flex flex-col gap-4">
+        <Stack spacing={2}>
             {clusters.map((cluster) => (
                 <IssueCard key={cluster.id} cluster={cluster} />
             ))}
-        </div>
+        </Stack>
     );
 }

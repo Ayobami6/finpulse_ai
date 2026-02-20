@@ -1,109 +1,124 @@
 "use client";
 
-import { useState } from "react";
-import { Save, Plus, Trash2 } from "lucide-react";
+import { Save, Plus, Trash2, CheckCircle, AlertCircle } from "lucide-react";
+import {
+    Container,
+    Box,
+    Heading,
+    Text,
+    VStack,
+    HStack,
+    Button,
+    Flex,
+    Badge,
+    Input,
+    Icon,
+    IconButton,
+    Checkbox
+} from "@chakra-ui/react";
 
 export default function SettingsPage() {
     return (
-        <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
-            <h1 className="heading-xl" style={{ marginBottom: "2rem" }}>Settings</h1>
+        <Container maxW="container.md" py={8}>
+            <Box mb={8}>
+                <Heading size="lg" mb={2}>Settings</Heading>
+                <Text color="gray.500">Manage team access, integrations, and notification preferences.</Text>
+            </Box>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+            <VStack spacing={6} align="stretch">
 
                 {/* Team Management */}
-                <div className="card">
-                    <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem", fontWeight: 600 }}>Team Management</h2>
-                    <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
+                <Box bg="white" borderRadius="lg" shadow="sm" borderWidth="1px" borderColor="gray.100" p={6}>
+                    <Heading size="md" mb={2}>Team Management</Heading>
+                    <Text fontSize="sm" color="gray.500" mb={6}>
                         Manage access for Product, Engineering, and Ops team members.
-                    </p>
+                    </Text>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <VStack spacing={3} align="stretch">
                         {["alice@finpulse.com (Product)", "bob@finpulse.com (Engineering)", "charlie@finpulse.com (Ops)"].map((member, i) => (
-                            <div key={i} style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                padding: "0.75rem",
-                                backgroundColor: "rgba(255,255,255,0.02)",
-                                borderRadius: "8px"
-                            }}>
-                                <span>{member}</span>
-                                <button style={{ color: "var(--error)", background: "none", border: "none", cursor: "pointer" }}>
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
+                            <Flex key={i} justify="space-between" align="center" p={3} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.100">
+                                <Text fontSize="sm" fontWeight="medium" color="gray.700">{member}</Text>
+                                <IconButton
+                                    aria-label="Delete member"
+                                    variant="ghost"
+                                    colorScheme="red"
+                                    size="xs"
+                                >
+                                    <Icon as={Trash2} boxSize={4} />
+                                </IconButton>
+                            </Flex>
                         ))}
-                    </div>
+                    </VStack>
 
-                    <button style={{
-                        marginTop: "1.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        color: "var(--accent)",
-                        background: "none",
-                        border: "1px dashed var(--accent)",
-                        padding: "0.5rem 1rem",
-                        borderRadius: "8px",
-                        width: "100%",
-                        justifyContent: "center",
-                        cursor: "pointer"
-                    }}>
-                        <Plus size={18} /> Add Team Member
-                    </button>
-                </div>
+                    <Button mt={6} w="full" variant="outline" borderStyle="dashed" color="gray.600">
+                        <Icon as={Plus} mr={2} boxSize={4} /> Add Team Member
+                    </Button>
+                </Box>
 
                 {/* Integrations */}
-                <div className="card">
-                    <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem", fontWeight: 600 }}>Data Integrations</h2>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                                <div style={{ fontWeight: 500 }}>WhatsApp Business API</div>
-                                <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>Active • Last synced 2m ago</div>
-                            </div>
-                            <div style={{ color: "var(--success)", fontWeight: 600 }}>Connected</div>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                                <div style={{ fontWeight: 500 }}>Freshchat</div>
-                                <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>Active • Last synced 5m ago</div>
-                            </div>
-                            <div style={{ color: "var(--success)", fontWeight: 600 }}>Connected</div>
-                        </div>
-                    </div>
-                </div>
+                <Box bg="white" borderRadius="lg" shadow="sm" borderWidth="1px" borderColor="gray.100" p={6}>
+                    <Heading size="md" mb={4}>Data Integrations</Heading>
+                    <VStack spacing={4} align="stretch">
+                        <Flex justify="space-between" align="center" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.100">
+                            <Box>
+                                <Text fontWeight="semibold" fontSize="sm" color="gray.900">WhatsApp Business API</Text>
+                                <Text fontSize="xs" color="gray.500" mt={0.5}>Active • Last synced 2m ago</Text>
+                            </Box>
+                            <Badge colorScheme="green" variant="subtle" px={2.5} py={1} borderRadius="full" display="flex" alignItems="center" gap={1.5}>
+                                <Icon as={CheckCircle} boxSize={3.5} /> Connected
+                            </Badge>
+                        </Flex>
+                        <Flex justify="space-between" align="center" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.100">
+                            <Box>
+                                <Text fontWeight="semibold" fontSize="sm" color="gray.900">Freshchat</Text>
+                                <Text fontSize="xs" color="gray.500" mt={0.5}>Active • Last synced 5m ago</Text>
+                            </Box>
+                            <Badge colorScheme="green" variant="subtle" px={2.5} py={1} borderRadius="full" display="flex" alignItems="center" gap={1.5}>
+                                <Icon as={CheckCircle} boxSize={3.5} /> Connected
+                            </Badge>
+                        </Flex>
+                    </VStack>
+                </Box>
 
                 {/* Notifications */}
-                <div className="card">
-                    <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem", fontWeight: 600 }}>Notification Preferences</h2>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                        <input type="checkbox" defaultChecked id="email-alerts" style={{ accentColor: "var(--accent)" }} />
-                        <label htmlFor="email-alerts">Email alerts for High Severity issues</label>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <input type="checkbox" defaultChecked id="slack-alerts" style={{ accentColor: "var(--accent)" }} />
-                        <label htmlFor="slack-alerts">Slack notifications for new clusters</label>
-                    </div>
+                <Box bg="white" borderRadius="lg" shadow="sm" borderWidth="1px" borderColor="gray.100" p={6}>
+                    <Heading size="md" mb={4}>Notification Preferences</Heading>
+                    <VStack spacing={4} align="stretch">
+                        <Flex align="start" gap={3}>
+                            <Checkbox
+                                id="email-alerts"
+                                defaultChecked
+                                colorScheme="brand"
+                                alignItems="flex-start"
+                            >
+                                <Box>
+                                    <Text fontWeight="medium" fontSize="sm">Email Alerts</Text>
+                                    <Text fontSize="xs" color="gray.500">Receive emails for High Severity issues immediately.</Text>
+                                </Box>
+                            </Checkbox>
+                        </Flex>
+                        <Flex align="start" gap={3}>
+                            <Checkbox
+                                id="slack-alerts"
+                                defaultChecked
+                                colorScheme="brand"
+                                alignItems="flex-start"
+                            >
+                                <Box>
+                                    <Text fontWeight="medium" fontSize="sm">Slack Notifications</Text>
+                                    <Text fontSize="xs" color="gray.500">Get notified in #ops-alerts when new issue clusters are detected.</Text>
+                                </Box>
+                            </Checkbox>
+                        </Flex>
+                    </VStack>
 
-                    <button style={{
-                        backgroundColor: "var(--accent)",
-                        color: "#fff",
-                        border: "none",
-                        padding: "0.75rem 1.5rem",
-                        borderRadius: "8px",
-                        fontWeight: 600,
-                        marginTop: "1.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        cursor: "pointer",
-                        alignSelf: "flex-start"
-                    }}>
-                        <Save size={18} /> Save Preferences
-                    </button>
-                </div>
-            </div>
-        </div>
+                    <Flex mt={8} justify="flex-end">
+                        <Button colorScheme="purple">
+                            <Icon as={Save} mr={2} boxSize={4} /> Save Preferences
+                        </Button>
+                    </Flex>
+                </Box>
+            </VStack>
+        </Container>
     );
 }

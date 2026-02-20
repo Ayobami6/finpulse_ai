@@ -1,5 +1,4 @@
-"use client";
-
+import { Box, Center, Text } from "@chakra-ui/react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 interface ChartData {
@@ -13,11 +12,15 @@ interface IssueTrendChartProps {
 
 export default function IssueTrendChart({ data }: IssueTrendChartProps) {
   if (!data || data.length === 0) {
-    return <div className="h-[300px] flex items-center justify-center text-gray-400">No data available</div>
+    return (
+      <Center height="300px" color="gray.500">
+        <Text>No data available</Text>
+      </Center>
+    );
   }
 
   return (
-    <div className="w-full h-[300px]">
+    <Box width="100%" height="300px">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
           <defs>
@@ -55,6 +58,6 @@ export default function IssueTrendChart({ data }: IssueTrendChartProps) {
           />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </Box>
   );
 }

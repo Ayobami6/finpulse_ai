@@ -2,8 +2,20 @@
 
 import { useState, useEffect } from "react";
 import IssueClusterList from "@/components/dashboard/IssueClusterList";
-import { AlertOctagon, Filter } from "lucide-react";
-import axios from "axios";
+import { AlertTriangle, Filter, Loader2 } from "lucide-react";
+import {
+    Container,
+    Box,
+    Flex,
+    Heading,
+    Text,
+    Button,
+    Badge,
+    Icon,
+    Center,
+    Spinner
+} from "@chakra-ui/react";
+// import axios from "axios";
 
 const MOCK_ISSUES = [
     {
@@ -79,31 +91,50 @@ export default function IssuesPage() {
         fetchIssues();
     }, []);
 
-    if (loading) return <div className="flex justify-center items-center h-screen text-gray-500">Loading Issues...</div>;
+    if (loading) {
+        return (
+            <Center h="100vh">
+                <Flex align="center" gap={2} color="gray.500">
+                    <Spinner size="md" />
+                    <Text>Loading Issues...</Text>
+                </Flex>
+            </Center>
+        )
+    }
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Detected Issues</h1>
-                    <p className="text-gray-500 mt-1">
+        <Container maxW="container.lg" py={6}>
+            <Flex justify="space-between" align="center" mb={6}>
+                <Box>
+                    <Heading size="lg" mb={1} color="gray.900">Detected Issues</Heading>
+                    <Text color="gray.500">
                         AI-clustered problems from customer chats and system logs.
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                        <Filter size={16} /> Filter
-                    </button>
-                    <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold text-sm">
-                        <AlertOctagon size={18} />
+                    </Text>
+                </Box>
+                <Flex gap={3}>
+                    <Button variant="outline" size="sm" colorScheme="gray">
+                        <Icon as={Filter} mr={2} boxSize={4} /> Filter
+                    </Button>
+                    <Badge
+                        colorScheme="green"
+                        variant="subtle"
+                        px={3}
+                        py={2}
+                        borderRadius="lg"
+                        fontSize="sm"
+                        display="flex"
+                        alignItems="center"
+                        gap={2}
+                    >
+                        <Icon as={AlertTriangle} boxSize={4} />
                         {issues.length} Active Clusters
-                    </div>
-                </div>
-            </div>
+                    </Badge>
+                </Flex>
+            </Flex>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-1">
+            <Box bg="white" borderRadius="xl" shadow="sm" borderWidth="1px" borderColor="gray.100" p={1}>
                 <IssueClusterList clusters={issues} />
-            </div>
-        </div>
+            </Box>
+        </Container>
     );
 }

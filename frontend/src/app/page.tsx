@@ -6,8 +6,32 @@ import IssueTrendChart from "@/components/dashboard/IssueTrendChart";
 import ComponentImpactChart from "@/components/dashboard/ComponentImpactChart";
 import IssueClusterList from "@/components/dashboard/IssueClusterList";
 import CustomerSegmentList from "@/components/dashboard/CustomerSegmentList";
-import { AlertTriangle, TrendingUp, Users, Activity, Zap, Meh } from "lucide-react";
-import axios from "axios";
+import {
+    AlertTriangle,
+    TrendingUp,
+    Users,
+    BarChart,
+    Zap,
+    Smile,
+    ArrowRight
+} from "lucide-react";
+import {
+    Container,
+    SimpleGrid,
+    Heading,
+    Text,
+    Box,
+    Button,
+    Card,
+    CardHeader,
+    CardBody,
+    Flex,
+    Icon,
+    Spinner,
+    Center,
+    Grid
+} from "@chakra-ui/react";
+// import axios from "axios";
 
 // Mock data for initial render
 const MOCK_DATA = {
@@ -105,84 +129,117 @@ export default function Dashboard() {
     }, []);
 
     if (loading) {
-        return <div className="flex justify-center items-center h-screen text-gray-500">Loading Dashboard...</div>;
+        return (
+            <Center height="100vh">
+                <Spinner size="xl" color="brand.500" />
+            </Center>
+        );
     }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900">Executive Dashboard</h1>
-                <p className="text-gray-500 mt-1">Real-time insights across support, product, and engineering</p>
-            </div>
+        <Container maxW="container.xl" py={4}>
+            <Box mb={8}>
+                <Heading as="h1" size="lg" mb={2}>
+                    Executive Dashboard
+                </Heading>
+                <Text color="gray.500">
+                    Real-time insights across support, product, and engineering
+                </Text>
+            </Box>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={6}>
+                {/* Stats Cards */}
                 <StatsCard
                     title="Active Issues"
                     value={data.stats.active_issues.value}
-                    icon={<AlertTriangle className="text-red-500" />}
+                    icon={<Icon as={AlertTriangle} color="red.500" boxSize={6} />}
                     trend={data.stats.active_issues.trend}
                     trendDirection={data.stats.active_issues.direction as any}
                 />
                 <StatsCard
                     title="Avg Sentiment"
                     value={data.stats.avg_sentiment.value}
-                    icon={<Meh className="text-orange-500" />}
+                    icon={<Icon as={Smile} color="orange.500" boxSize={6} />}
                     trend={data.stats.avg_sentiment.trend}
                     trendDirection={data.stats.avg_sentiment.direction as any}
                 />
                 <StatsCard
                     title="System Errors"
                     value={data.stats.system_errors.value}
-                    icon={<Activity className="text-blue-500" />}
+                    icon={<Icon as={BarChart} color="blue.500" boxSize={6} />}
                     trend={data.stats.system_errors.trend}
                     trendDirection={data.stats.system_errors.direction as any}
                 />
                 <StatsCard
                     title="Auto Actions"
                     value={data.stats.auto_actions.value}
-                    icon={<Zap className="text-yellow-500" />}
+                    icon={<Icon as={Zap} color="brand.500" boxSize={6} />}
                     trend={data.stats.auto_actions.trend}
                     trendDirection={data.stats.auto_actions.direction as any}
                 />
-            </div>
+            </SimpleGrid>
 
             {/* Top 5 Issues */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <AlertTriangle className="text-red-500" size={20} /> Top 5 Issues This Week
-                    </h2>
-                    <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                        View All Issues
-                    </button>
-                </div>
-                <IssueClusterList clusters={data.top_issues} />
-            </div>
+            <Box mb={6}>
+                <Card bg="white" variant="outline">
+                    <CardHeader>
+                        <Flex justify="space-between" align="center">
+                            <Flex align="center" gap={2}>
+                                <Icon as={AlertTriangle} color="red.500" boxSize={5} />
+                                <Heading size="md">Top 5 Issues This Week</Heading>
+                            </Flex>
+                            <Button size="sm" variant="outline" colorScheme="gray">
+                                View All Issues <Icon as={ArrowRight} ml={2} boxSize={4} />
+                            </Button>
+                        </Flex>
+                    </CardHeader>
+                    <CardBody>
+                        <IssueClusterList clusters={data.top_issues} />
+                    </CardBody>
+                </Card>
+            </Box>
 
             {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                    <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <TrendingUp size={20} className="text-gray-400" /> Issue Trends (Last 30 Days)
-                    </h2>
-                    <IssueTrendChart data={data.chart_data} />
-                </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                    <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <Activity size={20} className="text-gray-400" /> Most Affected Components
-                    </h2>
-                    <ComponentImpactChart data={data.component_impact} />
-                </div>
-            </div>
+            <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6} mb={6}>
+                <Card bg="white" variant="outline" h="full">
+                    <CardHeader>
+                        <Flex align="center" gap={2}>
+                            <Icon as={TrendingUp} color="gray.500" boxSize={5} />
+                            <Heading size="md">Issue Trends (Last 30 Days)</Heading>
+                        </Flex>
+                    </CardHeader>
+                    <CardBody>
+                        <IssueTrendChart data={data.chart_data} />
+                    </CardBody>
+                </Card>
+
+                <Card bg="white" variant="outline" h="full">
+                    <CardHeader>
+                        <Flex align="center" gap={2}>
+                            <Icon as={BarChart} color="gray.500" boxSize={5} />
+                            <Heading size="md">Most Affected Components</Heading>
+                        </Flex>
+                    </CardHeader>
+                    <CardBody>
+                        <ComponentImpactChart data={data.component_impact} />
+                    </CardBody>
+                </Card>
+            </Grid>
 
             {/* Customer Segments */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                    <Users size={20} className="text-orange-500" /> Most Affected Customer Segments
-                </h2>
-                <CustomerSegmentList segments={data.customer_segments} />
-            </div>
-        </div>
+            <Box>
+                <Card bg="white" variant="outline">
+                    <CardHeader>
+                        <Flex align="center" gap={2}>
+                            <Icon as={Users} color="orange.500" boxSize={5} />
+                            <Heading size="md">Most Affected Customer Segments</Heading>
+                        </Flex>
+                    </CardHeader>
+                    <CardBody>
+                        <CustomerSegmentList segments={data.customer_segments} />
+                    </CardBody>
+                </Card>
+            </Box>
+        </Container>
     );
 }

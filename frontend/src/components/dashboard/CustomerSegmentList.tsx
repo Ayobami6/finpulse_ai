@@ -1,10 +1,10 @@
-"use client";
+import { Box, Stack, Text, Badge, Flex } from "@chakra-ui/react";
 
 interface CustomerSegment {
     id: number;
     name: string;
     description: string;
-    sentiment_score: number; // 0-5 scale for UI mock
+    sentiment_score: number; // 0-5 scale
     complaints_count: number;
 }
 
@@ -14,28 +14,48 @@ interface CustomerSegmentListProps {
 
 export default function CustomerSegmentList({ segments }: CustomerSegmentListProps) {
     return (
-        <div className="flex flex-col gap-3">
+        <Stack spacing={3}>
             {segments.map((segment) => {
-                const sentimentColor = segment.sentiment_score < 2.5 ? "text-red-500" : segment.sentiment_score < 3.5 ? "text-orange-500" : "text-emerald-500";
-                const bgClass = segment.sentiment_score < 2.5 ? "bg-red-50" : segment.sentiment_score < 3.5 ? "bg-orange-50" : "bg-emerald-50";
+                const isCritical = segment.sentiment_score < 2.5;
+                const isWarning = segment.sentiment_score >= 2.5 && segment.sentiment_score < 3.5;
+
+                const bg = isCritical ? 'red.50' : isWarning ? 'orange.50' : 'green.50';
+                const borderColor = isCritical ? 'red.100' : isWarning ? 'orange.100' : 'green.100';
+                const sentimentColor = isCritical ? 'red.600' : isWarning ? 'orange.600' : 'green.600';
 
                 return (
-                    <div key={segment.id} className={`${bgClass} rounded-lg p-4 flex justify-between items-center`}>
-                        <div>
-                            <h4 className="font-semibold text-gray-900 text-sm">{segment.name}</h4>
-                            <p className="text-xs text-gray-500 mt-0.5">{segment.description}</p>
-                        </div>
-                        <div className="text-right">
-                            <div className={`font-bold text-lg ${sentimentColor}`}>
-                                {segment.sentiment_score.toFixed(1)}/5
-                            </div>
-                            <div className="text-xs text-gray-500">
-                                <span className={sentimentColor}>Sentiment</span> • {segment.complaints_count} Complaints
-                            </div>
-                        </div>
-                    </div>
+                    <Box
+                        key={segment.id}
+                        bg={bg}
+                        borderWidth="1px"
+                        borderColor={borderColor}
+                        borderRadius="md"
+                        p={4}
+                    >
+                        <Flex justify="space-between" align="center">
+                            <Box>
+                                <Text fontWeight="bold" fontSize="sm">
+                                    {segment.name}
+                                </Text>
+                                <Text fontSize="xs" color="gray.600">
+                                    {segment.description}
+                                </Text>
+                            </Box>
+                            <Box textAlign="right">
+                                <Text color={sentimentColor} fontWeight="bold" fontSize="lg">
+                                    {segment.sentiment_score.toFixed(1)}/5
+                                </Text>
+                                <Text fontSize="xs" color="gray.500">
+                                    <Text as="span" color={sentimentColor} fontWeight="medium" mr={1}>
+                                        Sentiment
+                                    </Text>
+                                    • {segment.complaints_count} Complaints
+                                </Text>
+                            </Box>
+                        </Flex>
+                    </Box>
                 );
             })}
-        </div>
+        </Stack>
     );
 }

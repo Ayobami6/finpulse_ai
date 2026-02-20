@@ -1,17 +1,17 @@
 "use client";
 
-import { AlertTriangle, Clock, ArrowRight, TrendingUp, BarChart2 } from "lucide-react";
-import clsx from "clsx";
+import { TrendingUp, TrendingDown, BarChart2, Clock } from "lucide-react";
+import { Card, CardBody, Text, Badge, HStack, Button, Box, Divider, Stack, Icon } from "@chakra-ui/react";
 
 interface Action {
     id: number;
     summary: string;
 }
 
-interface IssueCluster {
+export interface IssueCluster {
     id: number;
     theme: string;
-    description: string;
+    description?: string;
     frequency: number;
     trend: "UP" | "DOWN" | "STABLE";
     trendValue?: string; // e.g. "45%"
@@ -27,82 +27,103 @@ interface IssueCardProps {
 }
 
 export default function IssueCard({ cluster }: IssueCardProps) {
-    const severityColors = {
-        Critical: "bg-red-100 text-red-700",
-        High: "bg-orange-100 text-orange-700",
-        Medium: "bg-yellow-100 text-yellow-700",
-        Low: "bg-blue-100 text-blue-700",
+    const severityColorMap: Record<string, string> = {
+        Critical: "red",
+        High: "orange",
+        Medium: "blue",
+        Low: "gray",
     };
 
-    const sentimentColor = cluster.sentiment_score < -0.5 ? "text-red-500" : cluster.sentiment_score < 0 ? "text-yellow-500" : "text-emerald-500";
+    const sentimentColor =
+        cluster.sentiment_score < -0.5 ? "red.500" :
+            cluster.sentiment_score < 0 ? "orange.500" :
+                "green.500";
 
     return (
-        <div className="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            {/* Header */}
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-gray-900">{cluster.theme}</h3>
-                    <span className={clsx("px-2 py-0.5 rounded text-xs font-semibold", severityColors[cluster.severity])}>
-                        {cluster.severity}
-                    </span>
-                    {cluster.trend === "UP" && (
-                        <div className="flex items-center text-red-500 text-sm font-medium">
-                            <TrendingUp size={14} className="mr-1" />
-                            <span>↑ {cluster.trendValue || "Rising"}</span>
-                        </div>
-                    )}
-                    {cluster.trend === "DOWN" && (
-                        <div className="flex items-center text-emerald-500 text-sm font-medium">
-                            <TrendingUp size={14} className="mr-1 rotate-180" />
-                            <span>↓ {cluster.trendValue || "Falling"}</span>
-                        </div>
-                    )}
-                </div>
-            </div>
+        <Card variant="outline" bg="white">
+            <CardBody p={4}>
+                {/* Header */}
+                <Stack direction="row" justify="space-between" align="flex-start" mb={2}>
+                    <Stack direction="row" align="center" spacing={2}>
+                        <Text fontSize="lg" fontWeight="bold">
+                            {cluster.theme}
+                        </Text>
+                        <Badge
+                            colorScheme={severityColorMap[cluster.severity]}
+                            variant="solid"
+                        >
+                            {cluster.severity}
+                        </Badge>
+                        {cluster.trend === "UP" && (
+                            <HStack spacing={1} color="red.500">
+                                <Icon as={TrendingUp} boxSize={4} />
+                                <Text fontSize="xs" fontWeight="bold">
+                                    {cluster.trendValue || "Rising"}
+                                </Text>
+                            </HStack>
+                        )}
+                        {cluster.trend === "DOWN" && (
+                            <HStack spacing={1} color="green.500">
+                                <Icon as={TrendingDown} boxSize={4} />
+                                <Text fontSize="xs" fontWeight="bold">
+                                    {cluster.trendValue || "Falling"}
+                                </Text>
+                            </HStack>
+                        )}
+                    </Stack>
+                </Stack>
 
-            {/* Correlation Detail */}
-            <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
-                <p>{cluster.correlation_detail || "Analyzing correlation data..."}</p>
-            </div>
+                {/* Correlation Detail */}
+                <Box mb={2}>
+                    <Text fontSize="sm" color="gray.600">
+                        {cluster.correlation_detail || "Analyzing correlation data..."}
+                    </Text>
+                </Box>
 
+                {/* Stats Row */}
+                <HStack spacing={4} mb={2} align="center">
+                    <HStack spacing={1}>
+                        <Icon as={BarChart2} boxSize={4} color="blue.500" />
+                        <Text fontSize="sm" fontWeight="medium">
+                            {cluster.frequency} complaints
+                        </Text>
+                    </HStack>
+                    <Text fontSize="sm" fontWeight="medium" color={sentimentColor}>
+                        Sentiment: {cluster.sentiment_score.toFixed(1)}/5
+                    </Text>
+                    <HStack spacing={1} color="gray.500">
+                        <Icon as={Clock} boxSize={4} />
+                        <Text fontSize="sm">
+                            Last 7 days
+                        </Text>
+                    </HStack>
+                </HStack>
 
-            {/* Stats Row */}
-            <div className="flex items-center gap-6 mb-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1.5 font-medium text-gray-700">
-                    <BarChart2 size={16} className="text-blue-500" />
-                    <span>{cluster.frequency} complaints</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <span className={clsx("font-medium", sentimentColor)}>Sentiment: {cluster.sentiment_score.toFixed(1)}/5</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <Clock size={16} />
-                    <span>Last 7 days</span>
-                </div>
-            </div>
+                <Divider my={3} />
 
-            <div className="border-t border-gray-100 my-4"></div>
+                {/* Root Cause */}
+                <Box mb={3}>
+                    <Text fontSize="xs" fontWeight="bold" color="gray.500" textTransform="uppercase" mb={1}>
+                        Root Cause:
+                    </Text>
+                    <Text fontSize="sm" color="gray.800">
+                        {cluster.root_cause_analysis || "No root cause identified yet."}
+                    </Text>
+                </Box>
 
-            {/* Root Cause */}
-            <div className="mb-4">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Root Cause:</h4>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                    {cluster.root_cause_analysis || "No root cause identified yet."}
-                </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3 mt-4">
-                <button className="px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-medium rounded border border-gray-200 hover:bg-gray-100 transition-colors">
-                    View Details
-                </button>
-                <button className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-medium rounded border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                    Create Ticket
-                </button>
-                <button className="px-3 py-1.5 bg-purple-50 text-purple-600 text-xs font-medium rounded border border-purple-100 hover:bg-purple-100 transition-colors">
-                    Send Alert
-                </button>
-            </div>
-        </div >
+                {/* Actions */}
+                <HStack spacing={2} mt={2}>
+                    <Button variant="outline" size="sm">
+                        View Details
+                    </Button>
+                    <Button variant="outline" size="sm" colorScheme="green">
+                        Create Ticket
+                    </Button>
+                    <Button variant="outline" size="sm" colorScheme="blue">
+                        Send Alert
+                    </Button>
+                </HStack>
+            </CardBody>
+        </Card>
     );
 }

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import ChatCard, { Chat } from "@/components/chats/ChatCard";
-import { MessageSquare, RefreshCw } from "lucide-react";
-import axios from "axios";
+import { RefreshCw, MessageSquare } from "lucide-react";
+import { Container, Flex, Box, Heading, Text, Button, Icon, Spinner, Center, Stack } from "@chakra-ui/react";
+// import axios from "axios";
 
 const MOCK_CHATS: Chat[] = [
     { id: 1, source: "whatsapp", sender_id: "+123456789", message: "My transfer failed again! Fix this now.", sentiment_score: -0.9, timestamp: "2023-10-27T10:00:00Z" },
@@ -37,28 +38,39 @@ export default function ChatsPage() {
         fetchChats();
     }, []);
 
-    if (loading) return <div className="flex justify-center items-center h-screen text-gray-500">Loading Chats...</div>;
+    if (loading) {
+        return (
+            <Center h="100vh">
+                <Flex align="center" gap={2} color="gray.500">
+                    <Spinner size="md" />
+                    <Text>Loading Chats...</Text>
+                </Flex>
+            </Center>
+        );
+    }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Live Customer Chats</h1>
-                    <p className="text-gray-500 mt-1">Real-time feed from WhatsApp and Freshchat.</p>
-                </div>
-                <button
+        <Container maxW="container.md" py={6}>
+            <Flex justify="space-between" align="center" mb={6}>
+                <Box>
+                    <Heading size="lg" mb={1}>Live Customer Chats</Heading>
+                    <Text color="gray.500">Real-time feed from WhatsApp and Freshchat.</Text>
+                </Box>
+                <Button
                     onClick={() => window.location.reload()}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                    variant="outline"
+                    size="sm"
+                    colorScheme="gray"
                 >
-                    <RefreshCw size={16} /> Refresh
-                </button>
-            </div>
+                    <Icon as={RefreshCw} mr={2} boxSize={4} /> Refresh
+                </Button>
+            </Flex>
 
-            <div className="space-y-3">
+            <Stack spacing={3}>
                 {chats.map((chat) => (
                     <ChatCard key={chat.id} chat={chat} />
                 ))}
-            </div>
-        </div>
+            </Stack>
+        </Container>
     );
 }

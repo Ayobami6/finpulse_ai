@@ -1,5 +1,4 @@
-"use client";
-
+import { Box, Center, Text } from "@chakra-ui/react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 
 interface ComponentData {
@@ -15,11 +14,15 @@ const COLORS = ['#ef4444', '#f59e0b', '#eab308', '#10b981', '#6366f1'];
 
 export default function ComponentImpactChart({ data }: ComponentImpactChartProps) {
     if (!data || data.length === 0) {
-        return <div className="h-64 flex items-center justify-center text-gray-400">No data available</div>
+        return (
+            <Center height="256px" color="gray.500">
+                <Text>No data available</Text>
+            </Center>
+        );
     }
 
     return (
-        <div className="w-full h-64">
+        <Box width="100%" height="256px">
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -46,6 +49,6 @@ export default function ComponentImpactChart({ data }: ComponentImpactChartProps
                     </Bar>
                 </BarChart>
             </ResponsiveContainer>
-        </div>
+        </Box>
     );
 }
