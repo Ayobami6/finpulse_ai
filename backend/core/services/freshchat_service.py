@@ -164,3 +164,31 @@ class FreshchatService:
         # Add source field which process_message doesn't add (it's called from ingestion service too)
         processed["source"] = "freshchat"
         return [processed]
+
+    def send_message(self, conversation_id: str, text: str):
+        """
+        Sends a message to a Freshchat conversation.
+        """
+        if not self.api_key or not self.account_url:
+            logger.error("Freshchat API key or Account URL not configured.")
+            return None
+
+        url = f"{self.account_url}/v2/conversations/{conversation_id}/messages"
+        payload = {
+            "message_parts": [
+                {
+                    "text": {
+                        "content": text
+                    }
+                }
+            ],
+            "actor_type": "agent"
+        }
+
+        try:
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error sending Freshchat message to {conversation_id}: {e}")
+            return None

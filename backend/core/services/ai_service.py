@@ -1,158 +1,317 @@
 import os
-import openai
-from sklearn.cluster import DBSCAN
-import numpy as np
-from django.utils import timezone
+import json
+import logging
+import re
+import asyncio
 from datetime import timedelta
-from ..models import IssueCluster, LogEntry
+from typing import List, Optional, Dict, Any
 
-# Initialize OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY")
+from pydantic import BaseModel, Field
+from google.adk.agents.llm_agent import Agent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai.types import Content, Part
+from asgiref.sync import sync_to_async
+
+from django.utils import timezone
+from django.conf import settings
+
+from ..models import IssueCluster, LogEntry, ChatEntry, ActionRecommendation
+
+logger = logging.getLogger(__name__)
+
+# --- Schemas ---
+
+
+class SentimentResult(BaseModel):
+    score: float = Field(..., description="Sentiment score between -1.0 and 1.0")
+    reasoning: str = Field(..., description="Brief reasoning for the score")
+
+
+class TriageResult(BaseModel):
+    is_correlated: bool = Field(..., description="Whether a correlation was found")
+    explanation: str = Field(
+        ..., description="Explanation of the correlation or lack thereof"
+    )
+    related_log_ids: List[int] = Field(
+        default_factory=list, description="IDs of related log entries"
+    )
+
+
+class ActionRecResult(BaseModel):
+    summary: str = Field(..., description="1-sentence summary of the issue")
+    likely_root_cause: str = Field(..., description="Likely root cause analysis")
+    suggested_actions: List[str] = Field(..., description="3 specific actionable steps")
+
+
+# --- Tools ---
+
+
+@sync_to_async
+def get_recent_error_logs(lookback_hours: int = 1) -> List[Dict[str, Any]]:
+    """
+    Fetches recent ERROR logs from the database.
+    Args:
+        lookback_hours: Number of hours to look back.
+    """
+    threshold = timezone.now() - timedelta(hours=lookback_hours)
+    logs = LogEntry.objects.filter(level="ERROR", timestamp__gte=threshold).order_by(
+        "-timestamp"
+    )[:20]
+    return [
+        {
+            "id": log.id,
+            "source": log.source,
+            "message": log.message,
+            "timestamp": str(log.timestamp),
+        }
+        for log in logs
+    ]
+
+
+@sync_to_async
+def save_issue_analysis(
+    theme: str, description: str, sentiment: float, root_cause: str = None
+) -> int:
+    """
+    Saves or updates an IssueCluster in the database.
+    Returns the cluster ID.
+    """
+    logger.info(f"TOOL CALL: save_issue_analysis(theme={theme}, sentiment={sentiment})")
+    cluster, created = IssueCluster.objects.get_or_create(
+        theme=theme,
+        defaults={
+            "description": description,
+            "sentiment_score": sentiment,
+            "root_cause_analysis": root_cause or "",
+        },
+    )
+    if not created:
+        cluster.description = description
+        cluster.sentiment_score = sentiment
+        if root_cause:
+            cluster.root_cause_analysis = root_cause
+        cluster.save()
+    return cluster.id
+
+
+@sync_to_async
+def save_recommendations(
+    cluster_id: int, summary: str, root_cause: str, actions: List[str]
+):
+    """
+    Saves action recommendations for a cluster.
+    """
+    logger.info(
+        f"TOOL CALL: save_recommendations(cluster_id={cluster_id}, summary={summary})"
+    )
+    cluster = IssueCluster.objects.get(id=cluster_id)
+    ActionRecommendation.objects.update_or_create(
+        cluster=cluster,
+        defaults={
+            "summary": summary,
+            "likely_root_cause": root_cause,
+            "suggested_actions": actions,
+        },
+    )
+
+
+@sync_to_async
+def reply_to_freshchat(conversation_id: str, message: str):
+    """
+    Sends a reply message to a Freshchat conversation.
+    Use this if the user needs immediate confirmation or a quick troubleshooting tip.
+    """
+    from .freshchat_service import FreshchatService
+
+    service = FreshchatService()
+    return service.send_message(conversation_id, message)
+
+
+# --- AI Service Class ---
+
 
 class AIService:
+    # Initialize components
+    GEMINI_API_KEY = getattr(
+        settings, "GOOGLE_GEMINI_API_KEY", os.getenv("GOOGLE_GEMINI_API_KEY")
+    )
+    if GEMINI_API_KEY:
+        os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+
+    # We use a session service to maintain state during an agent run if needed
+    _session_service = InMemorySessionService()
+
+    # Define Agents
+
+    grouping_agent = Agent(
+        name="GroupingAgent",
+        model="gemini-2.5-flash",
+        description="Specially trained to identify thematic patterns across disparate data points.",
+        instruction="""
+        Your task is to review a collection of customer messages and system logs.
+        Identify the single most dominant theme or 'Cluster' that unites them.
+        Provide a short Label (e.g., 'PAYMENT_CORE_FAILURE') and a Brief Description.
+        REPORT THIS TO THE SUPERVISOR.
+        """,
+    )
+
+    analyzer_agent = Agent(
+        name="IssueAnalyzer",
+        model="gemini-2.5-flash",
+        description="A detail-oriented analyst specializing in customer sentiment and thematic categorization.",
+        instruction="""
+        Your goal is to parse customer messages and determine the emotional pulse (sentiment) and the core 'pillar' of the issue.
+        Pillars include: PAYMENT_FAILURE, APP_CRASH, ONBOARDING_DELAY, and GENERAL_QUERY.
+        Provide a concise reasoning for your classification.
+        REPORT YOUR FINDINGS TO THE SUPERVISOR. DO NOT ADDRESS THE END USER.
+        """,
+    )
+
+    triage_agent = Agent(
+        name="SystemTriage",
+        model="gemini-2.5-flash",
+        description="A technical specialist who correlates user complaints with live system telemetry.",
+        instruction="""
+        Your goal is to find the 'smoking gun' in the system logs.
+        Use the get_recent_error_logs tool to see what was happening in the backend when the users complained.
+        Look for semantic matches (e.g., user says 'can't pay' -> logs show 'Stripe API Error').
+        REPORT YOUR FINDINGS TO THE SUPERVISOR. DO NOT ADDRESS THE END USER.
+        """,
+        tools=[get_recent_error_logs],
+    )
+
+    action_agent = Agent(
+        name="ActionSpecialist",
+        model="gemini-2.5-flash",
+        description="A proactive operations expert who translates analysis into immediate business value.",
+        instruction="""
+        You are responsible for CLOSING THE LOOP and satisfying the user.
+        1. Use save_issue_analysis to save the theme, sentiment, and root cause.
+        2. Use save_recommendations to save action items for the cluster.
+        3. If you identify a definite system issue (via SystemTriage), use reply_to_freshchat to send a brief, empathetic response to the user.
+           Example: "I've detected a Stripe connection issue on our end and our team is already on it. Sorry for the trouble!"
+        4. Confirm to the Supervisor once tools are called.
+        MANDATORY: You MUST call the tools. Do not just describe what should be saved.
+        """,
+        tools=[save_issue_analysis, save_recommendations, reply_to_freshchat],
+    )
+
+    supervisor = Agent(
+        name="Supervisor",
+        model="gemini-2.5-flash",
+        description="The high-level orchestrator of the FinPulse AI intelligence loop.",
+        instruction="""
+        You are a PIPELINE EXECUTOR.
+        1. Start by calling GroupingAgent with all provided data to define the cluster.
+        2. Once grouped, call IssueAnalyzer for sentiment and pillars.
+        3. THEN CALL SystemTriage with those findings to correlate with logs.
+        4. FINALLY CALL ActionSpecialist to save the data.
+        CRITICAL: Ensure ActionSpecialist confirms that tools save_issue_analysis AND save_recommendations were successfully called.
+        DO NOT END THE SESSION UNTIL EVERYTHING IS SAVED.
+        """,
+        sub_agents=[grouping_agent, analyzer_agent, triage_agent, action_agent],
+    )
+
+    runner = Runner(
+        agent=supervisor,
+        session_service=_session_service,
+        app_name="FinPulse-Agentic-AI",
+    )
+
     @staticmethod
-    def get_embedding(text):
-        if not openai.api_key:
-            # Mock embedding: explicit deterministic mock for testing
-            # Use hash of text to seed random so similar text gets similar embeddings
-            seed = sum(ord(c) for c in text)
-            np.random.seed(seed)
-            return np.random.rand(1536).tolist()
-            
+    def run_agentic_pipeline(raw_payload: Dict[str, Any]):
+        """
+        Runs the full ADK agentic pipeline.
+        Now takes raw data and handles grouping internally.
+        """
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            response = openai.embeddings.create(
-                input=text,
-                model="text-embedding-3-small"
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            print(f"Error getting embedding: {e}")
-            return []
+            return loop.run_until_complete(AIService._run_adk_runner(raw_payload))
+        finally:
+            loop.close()
 
     @staticmethod
-    def cluster_issues(texts):
-        """
-        Clusters a list of texts using DBSCAN on embeddings.
-        Returns a list of cluster labels.
-        -1 indicates noise (unclustered).
-        """
-        if not texts:
-            return []
-            
-        embeddings = [AIService.get_embedding(text) for text in texts]
-        if not embeddings or not embeddings[0]:
-            return [-1] * len(texts)
+    async def _run_adk_runner(raw_payload: Dict[str, Any]):
+        user_id = "system_orchestrator"
+        session = await AIService._session_service.create_session(
+            user_id=user_id, app_name="FinPulse-Agentic-AI"
+        )
 
-        # DBSCAN clustering
-        # eps=0.5, min_samples=2 is a starting point for small batches
-        # Metric cosine distance is 1 - cosine similarity
-        clustering = DBSCAN(eps=0.3, min_samples=2, metric='cosine').fit(embeddings)
-        return clustering.labels_
+        message_text = f"Process this raw intelligence data:\n{json.dumps(raw_payload)}"
+        new_message = Content(parts=[Part(text=message_text)])
+
+        final_response = ""
+        async for event in AIService.runner.run_async(
+            session_id=session.id, user_id=user_id, new_message=new_message
+        ):
+            logger.info(f"ADK Event: {type(event).__name__}")
+            if event.is_final_response():
+                final_response = "".join(
+                    [p.text for p in event.content.parts if p.text]
+                )
+                logger.info(f"Final Response Event Received: {final_response[:100]}...")
+            elif event.error_message:
+                logger.error(f"ADK Runner Error: {event.error_message}")
+
+            # Log any parts (including tool calls if visible)
+            if hasattr(event, "content") and event.content:
+                for part in event.content.parts:
+                    if part.function_call:
+                        logger.info(
+                            f"Model requested tool call: {part.function_call.name}"
+                        )
+
+        return final_response
 
     @staticmethod
-    def analyze_sentiment(text):
+    def run_smart_reply(chat_id: int):
         """
-        Returns a sentiment score between -1.0 (negative) and 1.0 (positive).
+        Runs a focused agentic pipeline for a single incoming message.
+        This is for real-time 'Smart Reply' functionality.
         """
-        if not openai.api_key:
-            # Mock sentiment based on keywords
-            text_lower = text.lower()
-            if "failed" in text_lower or "error" in text_lower or "broken" in text_lower:
-                return -0.8
-            if "bad" in text_lower or "slow" in text_lower:
-                return -0.5
-            return 0.0
-            
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            response = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Analyze the sentiment of the following text. Respond with a single number between -1.0 and 1.0."},
-                    {"role": "user", "content": text}
-                ],
-                max_tokens=10
-            )
-            content = response.choices[0].message.content.strip()
-            return float(content)
-        except Exception:
-            return 0.0
+            return loop.run_until_complete(AIService._run_smart_reply_runner(chat_id))
+        finally:
+            loop.close()
+
+    @staticmethod
+    async def _run_smart_reply_runner(chat_id: int):
+        user_id = "smart_reply_orchestrator"
+        session = await AIService._session_service.create_session(
+            user_id=user_id, app_name="FinPulse-Agentic-AI"
+        )
+
+        chat = await sync_to_async(ChatEntry.objects.get)(id=chat_id)
+
+        message_text = (
+            f"A customer just sent this message: '{chat.message}'\n"
+            f"Sender ID: {chat.sender_id}\n"
+            f"Metadata: {json.dumps(chat.metadata)}\n"
+            "Please analyze this immediately. Check system logs for correlations and REPLY to the user if you find a problem."
+        )
+        new_message = Content(parts=[Part(text=message_text)])
+
+        final_response = ""
+        async for event in AIService.runner.run_async(
+            session_id=session.id, user_id=user_id, new_message=new_message
+        ):
+            if event.is_final_response():
+                final_response = "".join(
+                    [p.text for p in event.content.parts if p.text]
+                )
+            elif event.error_message:
+                logger.error(f"ADK Smart Reply Error: {event.error_message}")
+
+        return final_response
 
     @staticmethod
     def correlate_root_cause(cluster):
-        """
-        Correlates a cluster with system logs.
-        1. Find time window of chats in cluster.
-        2. Fetch error logs in that window.
-        3. Use LLM to check semantic correlation.
-        """
-        # 1. Get time window
-        # Assuming cluster is fresh, look back 1 hour from now or from sample messages
-        # In a real system, we'd use the timestamps of the messages in the cluster
-        time_threshold = timezone.now() - timedelta(hours=1)
-        
-        # 2. Fetch error logs
-        error_logs = LogEntry.objects.filter(
-            timestamp__gte=time_threshold,
-            level='ERROR'
-        ).order_by('-timestamp')[:10] # Top 10 recent errors
-        
-        if not error_logs.exists():
-            return "No recent system errors found to correlate."
-
-        log_summaries = "\n".join([f"[{log.timestamp}] {log.source}: {log.message}" for log in error_logs])
-        cluster_text = "\n".join(cluster.sample_messages[:5])
-
-        # 3. LLM Correlation
-        if not openai.api_key:
-            # Mock correlation
-            first_log = error_logs.first()
-            return f"Mock Correlation: Detected potential link to {first_log.source} error: {first_log.message}"
-
-        try:
-            prompt = (
-                f"Analyze the following CUSTOMER COMPLAINTS and SYSTEM LOGS to find a root cause correlation.\n\n"
-                f"CUSTOMER COMPLAINTS:\n{cluster_text}\n\n"
-                f"SYSTEM LOGS:\n{log_summaries}\n\n"
-                f"Is there a correlation? If yes, explain it concisely. If no, say 'No correlation found'."
-            )
-            
-            response = openai.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message.content
-            
-        except Exception as e:
-            return f"Error analyzing correlation: {e}"
+        return "Handled by Agentic Pipeline"
 
     @staticmethod
     def generate_actions(cluster_description, root_cause_analysis):
-        """
-        Generates action recommendations.
-        """
-        if not openai.api_key:
-             return {
-                "summary": f"Issue with {cluster_description}",
-                "likely_root_cause": root_cause_analysis,
-                "suggested_actions": ["Investigate logs", "Check service health", "Notify engineering"]
-            }
-
-        try:
-            prompt = (
-                f"Issue: {cluster_description}\n"
-                f"Root Cause Analysis: {root_cause_analysis}\n\n"
-                f"Provide:\n1. A 1-sentence summary.\n2. Likely root cause.\n3. 3 specific actionable steps for Ops/Eng."
-            )
-            response = openai.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            # Naive parsing
-            content = response.choices[0].message.content
-            return {
-                "summary": content[:200] + "...", # Simplified
-                "likely_root_cause": root_cause_analysis,
-                "suggested_actions": [content] # Put full content in list for now
-            }
-        except Exception as e:
-            return {}
+        return {"summary": "Handled by Agentic Pipeline", "suggested_actions": []}
