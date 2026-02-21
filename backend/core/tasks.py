@@ -1,7 +1,7 @@
 from celery import shared_task
 from .models import LogEntry, ChatEntry, IssueCluster
 from django.utils import timezone
-
+from .services.ingestion_service import IngestionService
 from .services.ai_service import AIService
 
 
@@ -30,9 +30,6 @@ def process_new_chat_entry(chat_id):
         print(f"Error in Smart Reply task for chat {chat_id}: {e}")
 
 
-from .services.ingestion_service import IngestionService
-
-
 @shared_task
 def poll_chat_sources():
     print("Polling chat sources...")
@@ -56,7 +53,7 @@ def run_clustering_task():
         return
 
     print(f"Processing {len(chats)} raw chats via Agentic Pipeline...")
-    
+
     # 2. Prepare raw payload
     raw_payload = {
         "timestamp": str(timezone.now()),
@@ -70,7 +67,7 @@ def run_clustering_task():
                 "timestamp": str(c.timestamp),
             }
             for c in chats
-        ]
+        ],
     }
 
     # 3. Run the pure agentic pipeline
@@ -84,7 +81,7 @@ def run_clustering_task():
         for chat in chats:
             chat.processed = True
             chat.save()
-            
+
     except Exception as e:
         print(f"Pipeline Error: {e}")
 
