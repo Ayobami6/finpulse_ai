@@ -67,31 +67,89 @@ class DashboardViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def executive_summary(self, request):
-        # 1. Top 5 Issues (Clusters)
+        now = timezone.now()
+        thirty_days_ago = now - timedelta(days=30)
+
+        # 1. Stats
+        active_issues_count = IssueCluster.objects.count()
+        avg_sentiment = (
+            ChatEntry.objects.aggregate(Avg("sentiment_score"))["sentiment_score__avg"]
+            or 0
+        )
+        system_errors = LogEntry.objects.filter(
+            level="ERROR", timestamp__gte=now - timedelta(days=1)
+        ).count()
+        auto_actions = ActionRecommendation.objects.count()
+
+        # 2. Top 5 Issues (Clusters)
         top_clusters = IssueCluster.objects.order_by("-frequency")[:5]
         top_issues_data = IssueClusterSerializer(top_clusters, many=True).data
 
-        # 2. Angry Customers (Lowest Sentiment)
-        angry_chats = ChatEntry.objects.order_by("sentiment_score")[:5]
-        angry_customers = [
-            {"sender": c.sender_id, "score": c.sentiment_score, "message": c.message}
-            for c in angry_chats
+        # 3. Chart Data (Issue Trends - last 30 days)
+        # Group by day
+        daily_counts = (
+            IssueCluster.objects.filter(created_at__gte=thirty_days_ago)
+            .extra(select={"day": "date(created_at)"})
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+        chart_data = [
+            {"name": item["day"], "value": item["count"]} for item in daily_counts
         ]
 
-        # 3. System Components (Log Failures)
-        # Group by source for ERROR logs
+        # 4. Component Impact
         failing_components = (
             LogEntry.objects.filter(level="ERROR")
             .values("source")
-            .annotate(count=Count("source"))
-            .order_by("-count")[:5]
+            .annotate(value=Count("source"))
+            .order_by("-value")[:5]
         )
+        component_impact = [
+            {"name": item["source"], "value": item["value"]}
+            for item in failing_components
+        ]
+
+        # 5. Customer Segments (Mock for now, as we don't have segments in models yet)
+        # But we can base it on volume of chats per sender_id if we had a mapping
+        customer_segments = [
+            {
+                "id": 1,
+                "name": "General Users",
+                "description": "Standard account holders",
+                "sentiment_score": avg_sentiment,
+                "complaints_count": ChatEntry.objects.count(),
+            },
+        ]
 
         return Response(
             {
+                "stats": {
+                    "active_issues": {
+                        "value": active_issues_count,
+                        "trend": "Last 7 days",
+                        "direction": "neutral",
+                    },
+                    "avg_sentiment": {
+                        "value": f"{avg_sentiment:.1f}/5",
+                        "trend": "Real-time",
+                        "direction": "neutral",
+                    },
+                    "system_errors": {
+                        "value": system_errors,
+                        "trend": "Last 24h",
+                        "direction": "up" if system_errors > 0 else "neutral",
+                    },
+                    "auto_actions": {
+                        "value": auto_actions,
+                        "trend": "Total recommendations",
+                        "direction": "neutral",
+                    },
+                },
                 "top_issues": top_issues_data,
-                "angry_customers": angry_customers,
-                "failing_components": failing_components,
+                "chart_data": chart_data,
+                "component_impact": component_impact,
+                "customer_segments": customer_segments,
             }
         )
 

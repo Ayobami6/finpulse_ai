@@ -102,6 +102,8 @@ const MOCK_DATA = {
     ]
 };
 
+import api from "@/services/api";
+
 export default function Dashboard() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -109,17 +111,12 @@ export default function Dashboard() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // In production, we would use real API
-                // const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-                // const response = await axios.get(`${apiUrl}/dashboard/executive_summary/`);
-                // setData(response.data);
-
-                // For UI dev, use Mock Data
-                await new Promise(resolve => setTimeout(resolve, 500)); // Simulate loading
-                setData(MOCK_DATA);
+                const response = await api.get("/dashboard/executive_summary/");
+                setData(response.data);
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
-                setData(MOCK_DATA);
+                // Fallback to empty state or handle error gracefully
+                setData(null);
             } finally {
                 setLoading(false);
             }

@@ -15,6 +15,8 @@ const MOCK_CHATS: Chat[] = [
     { id: 6, source: "whatsapp", sender_id: "+447700900000", message: "Is the app down? I can't login.", sentiment_score: -0.5, timestamp: "2023-10-27T10:25:00Z" },
 ];
 
+import api from "@/services/api";
+
 export default function ChatsPage() {
     const [chats, setChats] = useState<Chat[]>([]);
     const [loading, setLoading] = useState(true);
@@ -22,14 +24,11 @@ export default function ChatsPage() {
     useEffect(() => {
         const fetchChats = async () => {
             try {
-                // const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-                // const response = await axios.get(`${apiUrl}/chats/`);
-                // setChats(response.data.results || response.data);
-                await new Promise(resolve => setTimeout(resolve, 800));
-                setChats(MOCK_CHATS);
+                const response = await api.get("/chats/");
+                setChats(response.data.results || response.data);
             } catch (error) {
                 console.error("Failed to fetch chats:", error);
-                setChats(MOCK_CHATS);
+                setChats([]);
             } finally {
                 setLoading(false);
             }

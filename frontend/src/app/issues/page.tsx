@@ -68,6 +68,8 @@ const MOCK_ISSUES = [
     },
 ] as any[];
 
+import api from "@/services/api";
+
 export default function IssuesPage() {
     const [issues, setIssues] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -75,14 +77,11 @@ export default function IssuesPage() {
     useEffect(() => {
         const fetchIssues = async () => {
             try {
-                // const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-                // const response = await axios.get(`${apiUrl}/clusters/`);
-                // setIssues(response.data.results || response.data);
-                await new Promise(resolve => setTimeout(resolve, 600));
-                setIssues(MOCK_ISSUES);
+                const response = await api.get("/clusters/");
+                setIssues(response.data.results || response.data);
             } catch (error) {
                 console.error("Error fetching issues:", error);
-                setIssues(MOCK_ISSUES);
+                setIssues([]);
             } finally {
                 setLoading(false);
             }
