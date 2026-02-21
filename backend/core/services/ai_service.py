@@ -230,6 +230,13 @@ class AIService:
         try:
             return loop.run_until_complete(AIService._run_adk_runner(raw_payload))
         finally:
+            # Allow pending tasks (like AsyncClient.aclose) to finish
+            try:
+                pending = asyncio.all_tasks(loop)
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            except Exception as e:
+                logger.error(f"Error during loop cleanup in run_agentic_pipeline: {e}")
             loop.close()
 
     @staticmethod
@@ -276,6 +283,13 @@ class AIService:
         try:
             return loop.run_until_complete(AIService._run_smart_reply_runner(chat_id))
         finally:
+            # Allow pending tasks (like AsyncClient.aclose) to finish
+            try:
+                pending = asyncio.all_tasks(loop)
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            except Exception as e:
+                logger.error(f"Error during loop cleanup in run_smart_reply: {e}")
             loop.close()
 
     @staticmethod

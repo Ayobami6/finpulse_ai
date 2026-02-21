@@ -175,14 +175,9 @@ class FreshchatService:
 
         url = f"{self.account_url}/v2/conversations/{conversation_id}/messages"
         payload = {
-            "message_parts": [
-                {
-                    "text": {
-                        "content": text
-                    }
-                }
-            ],
-            "actor_type": "agent"
+            "message_parts": [{"text": {"content": text}}],
+            "actor_type": "agent",
+            "actor_id": "b184e638-2b4a-4f90-9053-29be033a2a40",
         }
 
         try:
