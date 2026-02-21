@@ -1,18 +1,31 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .models import LogEntry, ChatEntry, IssueCluster, ActionRecommendation, TeamMember
+from .models import (
+    LogEntry,
+    ChatEntry,
+    IssueCluster,
+    ActionRecommendation,
+    TeamMember,
+    IntegrationConfig,
+)
 from .serializers import (
     LogEntrySerializer,
     ChatEntrySerializer,
     IssueClusterSerializer,
     ActionRecommendationSerializer,
     TeamMemberSerializer,
+    IntegrationConfigSerializer,
 )
 from .tasks import process_new_log_entry, process_new_chat_entry
 from django.db.models import Count, Avg
 from django.utils import timezone
 from datetime import timedelta
+from rest_framework.views import APIView
+from .services.freshchat_service import FreshchatService
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LogEntryViewSet(viewsets.ModelViewSet):
@@ -91,3 +104,55 @@ class ActionRecommendationViewSet(viewsets.ReadOnlyModelViewSet):
 class TeamMemberViewSet(viewsets.ModelViewSet):
     queryset = TeamMember.objects.all()
     serializer_class = TeamMemberSerializer
+
+
+class IntegrationConfigViewSet(viewsets.ModelViewSet):
+    queryset = IntegrationConfig.objects.all()
+    serializer_class = IntegrationConfigSerializer
+
+
+class FreshchatWebhookView(APIView):
+    """
+    Endpoint for Freshchat webhooks.
+    """
+
+    permission_classes = []  # Open endpoint, verified by signature
+    authentication_classes = []
+
+    def post(self, request, *args, **kwargs):
+        signature = request.headers.get("X-Freshchat-Signature")
+        if not signature:
+            return Response(
+                {"error": "Missing signature"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        payload = request.body
+        service = FreshchatService()
+
+        if not service.verify_signature(payload, signature):
+            return Response(
+                {"error": "Invalid signature"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            data = request.data
+            messages = service.handle_webhook_payload(data)
+
+            for msg in messages:
+                chat = ChatEntry.objects.create(
+                    timestamp=msg["timestamp"],
+                    source=msg["source"],
+                    sender_id=msg["sender_id"],
+                    message=msg["message"],
+                    external_id=msg["id"],
+                    metadata=msg["metadata"],
+                )
+                process_new_chat_entry.delay(chat.id)
+
+            return Response({"status": "success"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error processing Freshchat webhook: {e}")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

@@ -7,6 +7,8 @@ from .views import (
     ActionRecommendationViewSet,
     TeamMemberViewSet,
     DashboardViewSet,
+    IntegrationConfigViewSet,
+    FreshchatWebhookView,
 )
 
 router = DefaultRouter()
@@ -16,7 +18,14 @@ router.register(r"clusters", IssueClusterViewSet)
 router.register(r"actions", ActionRecommendationViewSet)
 router.register(r"team", TeamMemberViewSet)
 router.register(r"dashboard", DashboardViewSet, basename="dashboard")
+router.register(r"integrations", IntegrationConfigViewSet)
+
 
 urlpatterns = [
     path("", include(router.urls)),
+    path(
+        "integrations/freshchat/webhook/",
+        FreshchatWebhookView.as_view(),
+        name="freshchat-webhook",
+    ),
 ]

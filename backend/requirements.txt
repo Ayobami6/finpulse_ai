@@ -13,3 +13,4 @@ channels>=4.0
 daphne>=4.0
 gunicorn
 uvicorn
+cryptography>=42.0.0

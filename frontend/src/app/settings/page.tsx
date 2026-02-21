@@ -1,6 +1,7 @@
 "use client";
 
-import { Save, Plus, Trash2, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Save, Plus, Trash2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import {
     Container,
     Box,
@@ -14,10 +15,116 @@ import {
     Input,
     Icon,
     IconButton,
-    Checkbox
+    Checkbox,
+    FormControl,
+    FormLabel,
+    Select,
+    useToast,
+    Divider,
+    Spinner,
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalHeader,
+    ModalFooter,
+    ModalBody,
+    ModalCloseButton,
+    useDisclosure
 } from "@chakra-ui/react";
+import { integrationService, IntegrationConfig } from "@/services/integrationService";
 
 export default function SettingsPage() {
+    const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { isOpen, onOpen, onClose } = useDisclosure();
+    const toast = useToast();
+
+    // Form state
+    const [formData, setFormData] = useState<IntegrationConfig>({
+        source_type: 'freshchat',
+        api_key: '',
+        webhook_secret: '',
+        account_url: '',
+        is_active: true
+    });
+
+    const fetchIntegrations = async () => {
+        try {
+            setLoading(true);
+            const data = await integrationService.getIntegrations();
+            setIntegrations(data);
+        } catch (error) {
+            console.error("Error fetching integrations:", error);
+            toast({
+                title: "Error",
+                description: "Failed to load integrations.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchIntegrations();
+    }, []);
+
+    const handleSave = async () => {
+        try {
+            await integrationService.saveIntegration(formData);
+            toast({
+                title: "Success",
+                description: "Integration saved successfully.",
+                status: "success",
+                duration: 3000,
+                isClosable: true,
+            });
+            onClose();
+            fetchIntegrations();
+            setFormData({
+                source_type: 'freshchat',
+                api_key: '',
+                webhook_secret: '',
+                account_url: '',
+                is_active: true
+            });
+        } catch (error) {
+            console.error("Error saving integration:", error);
+            toast({
+                title: "Error",
+                description: "Failed to save integration.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!confirm("Are you sure you want to delete this integration?")) return;
+        try {
+            await integrationService.deleteIntegration(id);
+            toast({
+                title: "Deleted",
+                description: "Integration removed.",
+                status: "info",
+                duration: 3000,
+                isClosable: true,
+            });
+            fetchIntegrations();
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to delete integration.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+    };
+
     return (
         <Container maxW="container.md" py={8}>
             <Box mb={8}>
@@ -57,27 +164,53 @@ export default function SettingsPage() {
 
                 {/* Integrations */}
                 <Box bg="white" borderRadius="lg" shadow="sm" borderWidth="1px" borderColor="gray.100" p={6}>
-                    <Heading size="md" mb={4}>Data Integrations</Heading>
-                    <VStack spacing={4} align="stretch">
-                        <Flex justify="space-between" align="center" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.100">
-                            <Box>
-                                <Text fontWeight="semibold" fontSize="sm" color="gray.900">WhatsApp Business API</Text>
-                                <Text fontSize="xs" color="gray.500" mt={0.5}>Active • Last synced 2m ago</Text>
-                            </Box>
-                            <Badge colorScheme="green" variant="subtle" px={2.5} py={1} borderRadius="full" display="flex" alignItems="center" gap={1.5}>
-                                <Icon as={CheckCircle} boxSize={3.5} /> Connected
-                            </Badge>
-                        </Flex>
-                        <Flex justify="space-between" align="center" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.100">
-                            <Box>
-                                <Text fontWeight="semibold" fontSize="sm" color="gray.900">Freshchat</Text>
-                                <Text fontSize="xs" color="gray.500" mt={0.5}>Active • Last synced 5m ago</Text>
-                            </Box>
-                            <Badge colorScheme="green" variant="subtle" px={2.5} py={1} borderRadius="full" display="flex" alignItems="center" gap={1.5}>
-                                <Icon as={CheckCircle} boxSize={3.5} /> Connected
-                            </Badge>
-                        </Flex>
-                    </VStack>
+                    <Flex justify="space-between" align="center" mb={4}>
+                        <Box>
+                            <Heading size="md">Data Integrations</Heading>
+                            <Text fontSize="sm" color="gray.500">Connect external data sources for analysis.</Text>
+                        </Box>
+                        <Button size="sm" colorScheme="purple" leftIcon={<Plus size={16} />} onClick={onOpen}>
+                            Add Source
+                        </Button>
+                    </Flex>
+
+                    {loading ? (
+                        <Flex justify="center" py={4}><Spinner /></Flex>
+                    ) : (
+                        <VStack spacing={4} align="stretch">
+                            {integrations.length === 0 ? (
+                                <Text fontSize="sm" color="gray.400" textAlign="center" py={4}>No active integrations. Add one to start pulling data.</Text>
+                            ) : (
+                                integrations.map((integration) => (
+                                    <Flex key={integration.id} justify="space-between" align="center" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.100">
+                                        <Box>
+                                            <Text fontWeight="semibold" fontSize="sm" color="gray.900">
+                                                {integration.source_type === 'freshchat' ? 'Freshchat' : 'WhatsApp'}
+                                            </Text>
+                                            <Text fontSize="xs" color="gray.500" mt={0.5}>
+                                                {integration.is_active ? 'Active' : 'Inactive'} • Last synced {integration.last_synced_at ? new Date(integration.last_synced_at).toLocaleString() : 'Never'}
+                                            </Text>
+                                            <Text fontSize="xs" color="gray.400">{integration.account_url}</Text>
+                                        </Box>
+                                        <HStack>
+                                            <Badge colorScheme={integration.is_active ? "green" : "gray"} variant="subtle" px={2.5} py={1} borderRadius="full" display="flex" alignItems="center" gap={1.5}>
+                                                <Icon as={integration.is_active ? CheckCircle : AlertCircle} boxSize={3.5} /> {integration.is_active ? "Connected" : "Disconnected"}
+                                            </Badge>
+                                            <IconButton
+                                                aria-label="Delete integration"
+                                                variant="ghost"
+                                                colorScheme="red"
+                                                size="sm"
+                                                onClick={() => integration.id && handleDelete(integration.id)}
+                                            >
+                                                <Icon as={Trash2} boxSize={4} />
+                                            </IconButton>
+                                        </HStack>
+                                    </Flex>
+                                ))
+                            )}
+                        </VStack>
+                    )}
                 </Box>
 
                 {/* Notifications */}
@@ -113,12 +246,58 @@ export default function SettingsPage() {
                     </VStack>
 
                     <Flex mt={8} justify="flex-end">
-                        <Button colorScheme="purple">
-                            <Icon as={Save} mr={2} boxSize={4} /> Save Preferences
+                        <Button colorScheme="purple" leftIcon={<Save size={18} />}>
+                            Save Preferences
                         </Button>
                     </Flex>
                 </Box>
             </VStack>
+
+            {/* Add Integration Modal */}
+            <Modal isOpen={isOpen} onClose={onClose}>
+                <ModalOverlay />
+                <ModalContent>
+                    <ModalHeader>Add Data Source</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody>
+                        <VStack spacing={4}>
+                            <FormControl>
+                                <FormLabel>Source Type</FormLabel>
+                                <Select
+                                    value={formData.source_type}
+                                    onChange={(e) => setFormData({ ...formData, source_type: e.target.value as any })}
+                                >
+                                    <option value="freshchat">Freshchat</option>
+                                    <option value="whatsapp">WhatsApp Business</option>
+                                </Select>
+                            </FormControl>
+                            <FormControl>
+                                <FormLabel>API Key</FormLabel>
+                                <Input
+                                    type="password"
+                                    placeholder="Enter API Key"
+                                    value={formData.api_key}
+                                    onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                                />
+                            </FormControl>
+                            <FormControl>
+                                <FormLabel>Account URL</FormLabel>
+                                <Input
+                                    placeholder="https://example.freshchat.com"
+                                    value={formData.account_url}
+                                    onChange={(e) => setFormData({ ...formData, account_url: e.target.value })}
+                                />
+                            </FormControl>
+                        </VStack>
+                    </ModalBody>
+
+                    <ModalFooter>
+                        <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
+                        <Button colorScheme="purple" onClick={handleSave}>Save Integration</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         </Container>
     );
 }
+
