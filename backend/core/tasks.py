@@ -3,6 +3,7 @@ from .models import LogEntry, ChatEntry, IssueCluster
 from django.utils import timezone
 from .services.ingestion_service import IngestionService
 from .services.ai_service import AIService
+from .services.system_log_service import SystemLogService
 
 
 @shared_task
@@ -15,6 +16,15 @@ def process_new_log_entry(log_id):
             # In real implementation: AIService.cluster_issues([log.message])
     except LogEntry.DoesNotExist:
         pass
+
+
+@shared_task
+def poll_system_logs():
+    print("Polling system logs...")
+    count = SystemLogService.poll_logs()
+    if count > 0:
+        print(f"Ingested {count} new system logs")
+    return count
 
 
 @shared_task

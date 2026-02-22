@@ -159,4 +159,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.run_clustering_task",
         "schedule": crontab(minute="*/30"),  # Every 30 minutes
     },
+    "poll-system-logs": {
+        "task": "core.tasks.poll_system_logs",
+        "schedule": crontab(minute="*"),  # Every minute
+    },
 }

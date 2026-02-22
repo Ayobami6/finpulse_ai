@@ -5,6 +5,9 @@ class LogEntry(models.Model):
     timestamp = models.DateTimeField()
     source = models.CharField(max_length=255)  # e.g. "nginx", "payment-service"
     level = models.CharField(max_length=50)  # INFO, ERROR, WARN
+    caller = models.CharField(
+        max_length=255, blank=True, null=True
+    )  # e.g. "api/api.go:78"
     message = models.TextField()
     metadata = models.JSONField(default=dict)
 
