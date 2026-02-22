@@ -142,6 +142,39 @@ def reply_to_whatsapp(sender_id: str, message: str):
     return service.send_message(sender_id, message)
 
 
+@sync_to_async
+def notify_internal_team(cluster_id: int):
+    """
+    Notifies the internal Engineering and Product teams about a confirmed system issue.
+    Call this ONLY when a definite system error (e.g., API failure, crash) is identified as the root cause.
+    """
+    from .alert_service import AlertService
+
+    try:
+        cluster = IssueCluster.objects.get(id=cluster_id)
+        action_rec = cluster.actions.first()
+        if not action_rec:
+            # Create a dummy recommendation if none exists yet
+            action_rec = ActionRecommendation.objects.create(
+                cluster=cluster,
+                summary="System issue detected and requires attention.",
+                likely_root_cause=cluster.root_cause_analysis
+                or "Unknown system error.",
+                suggested_actions=[
+                    "Investigate logs",
+                    "Fix root cause",
+                    "Verify resolution",
+                ],
+            )
+
+        AlertService.notify_teams(cluster, action_rec)
+        return "Internal teams notified successfully."
+    except IssueCluster.DoesNotExist:
+        return f"Error: Cluster {cluster_id} not found."
+    except Exception as e:
+        return f"Error notifying teams: {e}"
+
+
 # --- AI Service Class ---
 
 
@@ -207,7 +240,8 @@ class AIService:
            - Use reply_to_freshchat if the source is 'freshchat' (use conversation_id from metadata).
            - Use reply_to_whatsapp if the source is 'whatsapp' (use sender_id/phone number).
            Example: "I've detected a Stripe connection issue on our end and our team is already on it. Sorry for the trouble!"
-        4. Confirm to the Supervisor once tools are called.
+        4. MANDATORY: If a definite system issue is identified, call notify_internal_team with the cluster_id returned by save_issue_analysis.
+        5. Confirm to the Supervisor once tools are called.
         MANDATORY: You MUST call the tools. Do not just describe what should be saved.
         """,
         tools=[
@@ -215,6 +249,7 @@ class AIService:
             save_recommendations,
             reply_to_freshchat,
             reply_to_whatsapp,
+            notify_internal_team,
         ],
     )
 

@@ -78,7 +78,7 @@ class DashboardViewSet(viewsets.ViewSet):
             or 0
         )
         system_errors = LogEntry.objects.filter(
-            level="ERROR", timestamp__gte=now - timedelta(days=1)
+            timestamp__gte=now - timedelta(days=1)
         ).count()
         auto_actions = ActionRecommendation.objects.count()
 
@@ -101,7 +101,7 @@ class DashboardViewSet(viewsets.ViewSet):
 
         # 4. Component Impact
         failing_components = (
-            LogEntry.objects.filter(level="ERROR")
+            LogEntry.objects.filter(level__in=["ERROR", "INFO"])
             .values("source")
             .annotate(value=Count("source"))
             .order_by("-value")[:5]
