@@ -29,15 +29,35 @@ import {
     ModalFooter,
     ModalBody,
     ModalCloseButton,
-    useDisclosure
+    useDisclosure,
+    Tooltip,
+    InputGroup,
+    InputRightElement,
 } from "@chakra-ui/react";
+import { Copy, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { integrationService, IntegrationConfig } from "@/services/integrationService";
 
 export default function SettingsPage() {
     const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showSecret, setShowSecret] = useState(false);
     const { isOpen, onOpen, onClose } = useDisclosure();
     const toast = useToast();
+
+    const getWebhookUrl = (source: string) => {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8000';
+        return `${baseUrl}/api/integrations/${source}/webhook/`;
+    };
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast({
+            title: "Copied",
+            description: `${label} copied to clipboard.`,
+            status: "success",
+            duration: 2000,
+        });
+    };
 
     // Form state
     const [formData, setFormData] = useState<IntegrationConfig>({
@@ -183,19 +203,36 @@ export default function SettingsPage() {
                             ) : (
                                 integrations.map((integration) => (
                                     <Flex key={integration.id} justify="space-between" align="center" p={4} bg="gray.50" borderRadius="lg" borderWidth="1px" borderColor="gray.100">
-                                        <Box>
-                                            <Text fontWeight="semibold" fontSize="sm" color="gray.900">
-                                                {integration.source_type === 'freshchat' ? 'Freshchat' : 'WhatsApp'}
+                                        <Box flex="1">
+                                            <Flex justify="space-between" align="center" mb={1}>
+                                                <Text fontWeight="semibold" fontSize="sm" color="gray.900">
+                                                    {integration.source_type === 'freshchat' ? 'Freshchat' : 'WhatsApp'}
+                                                </Text>
+                                                <Badge colorScheme={integration.is_active ? "green" : "gray"} variant="subtle" px={2.5} py={0.5} borderRadius="full" fontSize="2xs">
+                                                    {integration.is_active ? "Connected" : "Disconnected"}
+                                                </Badge>
+                                            </Flex>
+                                            <Box mb={2}>
+                                                <Text fontSize="xs" color="gray.500" mb={1}>Webhook URL:</Text>
+                                                <InputGroup size="xs">
+                                                    <Input
+                                                        readOnly
+                                                        value={getWebhookUrl(integration.source_type)}
+                                                        bg="white"
+                                                        pr="4.5rem"
+                                                    />
+                                                    <InputRightElement width="4.5rem">
+                                                        <Button h="1.2rem" size="xs" onClick={() => copyToClipboard(getWebhookUrl(integration.source_type), "Webhook URL")}>
+                                                            Copy
+                                                        </Button>
+                                                    </InputRightElement>
+                                                </InputGroup>
+                                            </Box>
+                                            <Text fontSize="2xs" color="gray.400">
+                                                Last synced {integration.last_synced_at ? new Date(integration.last_synced_at).toLocaleString() : 'Never'}
                                             </Text>
-                                            <Text fontSize="xs" color="gray.500" mt={0.5}>
-                                                {integration.is_active ? 'Active' : 'Inactive'} • Last synced {integration.last_synced_at ? new Date(integration.last_synced_at).toLocaleString() : 'Never'}
-                                            </Text>
-                                            <Text fontSize="xs" color="gray.400">{integration.account_url}</Text>
                                         </Box>
-                                        <HStack>
-                                            <Badge colorScheme={integration.is_active ? "green" : "gray"} variant="subtle" px={2.5} py={1} borderRadius="full" display="flex" alignItems="center" gap={1.5}>
-                                                <Icon as={integration.is_active ? CheckCircle : AlertCircle} boxSize={3.5} /> {integration.is_active ? "Connected" : "Disconnected"}
-                                            </Badge>
+                                        <HStack alignSelf="flex-start" ml={4}>
                                             <IconButton
                                                 aria-label="Delete integration"
                                                 variant="ghost"
@@ -272,21 +309,47 @@ export default function SettingsPage() {
                                 </Select>
                             </FormControl>
                             <FormControl>
-                                <FormLabel>API Key</FormLabel>
-                                <Input
-                                    type="password"
-                                    placeholder="Enter API Key"
-                                    value={formData.api_key}
-                                    onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                                />
+                                <FormLabel fontSize="sm">API Secret / API Key</FormLabel>
+                                <InputGroup size="md">
+                                    <Input
+                                        type={showSecret ? "text" : "password"}
+                                        placeholder="Enter API Key from provider"
+                                        value={formData.api_key}
+                                        onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+                                    />
+                                    <InputRightElement width="3rem">
+                                        <IconButton
+                                            h="1.75rem"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => setShowSecret(!showSecret)}
+                                            icon={showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            aria-label={showSecret ? "Hide secret" : "Show secret"}
+                                        />
+                                    </InputRightElement>
+                                </InputGroup>
                             </FormControl>
                             <FormControl>
-                                <FormLabel>Account URL</FormLabel>
+                                <FormLabel fontSize="sm">Webhook Secret (Verification Token)</FormLabel>
                                 <Input
-                                    placeholder="https://example.freshchat.com"
+                                    placeholder="Set a secret token to verify webhooks"
+                                    value={formData.webhook_secret}
+                                    onChange={(e) => setFormData({ ...formData, webhook_secret: e.target.value })}
+                                />
+                                <Text fontSize="xs" color="gray.500" mt={1}>
+                                    This token will be used to verify that requests are coming from {formData.source_type === 'freshchat' ? 'Freshchat' : 'Meta (WhatsApp)'}.
+                                </Text>
+                            </FormControl>
+                            <FormControl>
+                                <FormLabel fontSize="sm">Account URL / Phone ID</FormLabel>
+                                <Input
+                                    placeholder={formData.source_type === 'freshchat' ? "https://your-domain.freshchat.com" : "e.g. 10455584444"}
                                     value={formData.account_url}
                                     onChange={(e) => setFormData({ ...formData, account_url: e.target.value })}
                                 />
+                                <Text fontSize="xs" color="gray.500" mt={1}>
+                                    {formData.source_type === 'freshchat' ? "Your Freshchat account URL." : "Your WhatsApp Phone Number ID."}
+                                </Text>
                             </FormControl>
                         </VStack>
                     </ModalBody>

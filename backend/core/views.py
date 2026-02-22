@@ -23,6 +23,7 @@ from django.utils import timezone
 from datetime import timedelta
 from rest_framework.views import APIView
 from .services.freshchat_service import FreshchatService
+from .services.whatsapp_service import WhatsAppService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -210,6 +211,62 @@ class FreshchatWebhookView(APIView):
             return Response({"status": "success"}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Error processing Freshchat webhook: {e}")
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class WhatsAppWebhookView(APIView):
+    """
+    Endpoint for WhatsApp webhooks (Meta Graph API).
+    """
+
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request, *args, **kwargs):
+        """
+        Webhook verification (GET request from Meta).
+        """
+        service = WhatsAppService()
+        mode = request.query_params.get("hub.mode")
+        token = request.query_params.get("hub.verify_token")
+        challenge = request.query_params.get("hub.challenge")
+
+        if mode and token:
+            result = service.verify_webhook(mode, token, challenge)
+            if result:
+                from django.http import HttpResponse
+
+                return HttpResponse(result)
+
+        return Response("Verification failed", status=status.HTTP_403_FORBIDDEN)
+
+    def post(self, request, *args, **kwargs):
+        """
+        Incoming messages (POST request from Meta).
+        """
+        service = WhatsAppService()
+        data = request.data
+
+        try:
+            messages = service.handle_webhook_payload(data)
+
+            for msg in messages:
+                chat = ChatEntry.objects.create(
+                    timestamp=msg["timestamp"],
+                    source=msg["source"],
+                    sender_id=msg["sender_id"],
+                    message=msg["message"],
+                    external_id=msg["id"],
+                    metadata=msg["metadata"],
+                )
+                process_new_chat_entry.delay(chat.id)
+
+            return Response({"status": "success"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error processing WhatsApp webhook: {e}")
             return Response(
                 {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

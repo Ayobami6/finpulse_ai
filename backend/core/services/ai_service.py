@@ -128,6 +128,18 @@ def reply_to_freshchat(conversation_id: str, message: str):
     return service.send_message(conversation_id, message)
 
 
+@sync_to_async
+def reply_to_whatsapp(sender_id: str, message: str):
+    """
+    Sends a reply message to a WhatsApp user.
+    Use this if the user needs immediate confirmation or a quick troubleshooting tip.
+    """
+    from .whatsapp_service import WhatsAppService
+
+    service = WhatsAppService()
+    return service.send_message(sender_id, message)
+
+
 # --- AI Service Class ---
 
 
@@ -189,12 +201,19 @@ class AIService:
         You are responsible for CLOSING THE LOOP and satisfying the user.
         1. Use save_issue_analysis to save the theme, sentiment, and root cause.
         2. Use save_recommendations to save action items for the cluster.
-        3. If you identify a definite system issue (via SystemTriage), use reply_to_freshchat to send a brief, empathetic response to the user.
+        3. If you identify a definite system issue (via SystemTriage), use the appropriate reply tool to send a brief, empathetic response to the user:
+           - Use reply_to_freshchat if the source is 'freshchat' (use conversation_id from metadata).
+           - Use reply_to_whatsapp if the source is 'whatsapp' (use sender_id/phone number).
            Example: "I've detected a Stripe connection issue on our end and our team is already on it. Sorry for the trouble!"
         4. Confirm to the Supervisor once tools are called.
         MANDATORY: You MUST call the tools. Do not just describe what should be saved.
         """,
-        tools=[save_issue_analysis, save_recommendations, reply_to_freshchat],
+        tools=[
+            save_issue_analysis,
+            save_recommendations,
+            reply_to_freshchat,
+            reply_to_whatsapp,
+        ],
     )
 
     supervisor = Agent(
@@ -234,7 +253,9 @@ class AIService:
             try:
                 pending = asyncio.all_tasks(loop)
                 if pending:
-                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                    loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
             except Exception as e:
                 logger.error(f"Error during loop cleanup in run_agentic_pipeline: {e}")
             loop.close()
@@ -287,7 +308,9 @@ class AIService:
             try:
                 pending = asyncio.all_tasks(loop)
                 if pending:
-                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                    loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
             except Exception as e:
                 logger.error(f"Error during loop cleanup in run_smart_reply: {e}")
             loop.close()

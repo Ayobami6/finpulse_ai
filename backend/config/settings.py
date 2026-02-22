@@ -30,7 +30,7 @@ SECRET_KEY = "django-insecure-58d)op2cwu8$o&*g-6*fu_-bcvjhkvy3(%xqc71%=qeo-)8yzc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".ngrok-free.app"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".ngrok-free.app", "testserver"]
 
 
 # Application definition
@@ -148,9 +148,7 @@ FRESHCHAT_API_KEY = os.getenv("FRESHCHAT_API_KEY", "YOUR_FRESHCHAT_API_KEY")
 FRESHCHAT_ACCOUNT_URL = os.getenv(
     "FRESHCHAT_ACCOUNT_URL", "https://YOUR_ACCOUNT.freshchat.com"
 )
-GOOGLE_GEMINI_API_KEY = os.getenv(
-    "GOOGLE_GEMINI_API_KEY", ""
-)
+GOOGLE_GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY", "")
 # Celery Beat Schedule
 CELERY_BEAT_SCHEDULE = {
     "poll-chat-sources": {

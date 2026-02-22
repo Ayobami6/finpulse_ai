@@ -9,6 +9,7 @@ from .views import (
     DashboardViewSet,
     IntegrationConfigViewSet,
     FreshchatWebhookView,
+    WhatsAppWebhookView,
 )
 
 router = DefaultRouter()
@@ -27,5 +28,10 @@ urlpatterns = [
         "integrations/freshchat/webhook/",
         FreshchatWebhookView.as_view(),
         name="freshchat-webhook",
+    ),
+    path(
+        "integrations/whatsapp/webhook/",
+        WhatsAppWebhookView.as_view(),
+        name="whatsapp-webhook",
     ),
 ]
