@@ -22,6 +22,12 @@ from ..models import IssueCluster, LogEntry, ChatEntry, ActionRecommendation
 
 logger = logging.getLogger(__name__)
 
+# Silence noisy libraries
+logging.getLogger("google_genai").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("google.adk").setLevel(logging.WARNING)
+logging.getLogger("google_adk").setLevel(logging.WARNING)
+
 # --- Schemas ---
 
 
@@ -330,12 +336,20 @@ class AIService:
             try:
                 pending = asyncio.all_tasks(loop)
                 if pending:
-                    loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
+                    # Filter out the current task to avoid issues
+                    current = asyncio.current_task(loop)
+                    pending = [t for t in pending if t is not current]
+                    if pending:
+                        loop.run_until_complete(
+                            asyncio.gather(*pending, return_exceptions=True)
+                        )
             except Exception as e:
-                logger.error(f"Error during loop cleanup in run_agentic_pipeline: {e}")
-            loop.close()
+                logger.debug(f"Expected loop cleanup noise: {e}")
+
+            try:
+                loop.close()
+            except Exception:
+                pass
 
     @staticmethod
     async def _run_adk_runner(raw_payload: Dict[str, Any]):
@@ -365,8 +379,12 @@ class AIService:
                 for part in event.content.parts:
                     if part.function_call:
                         logger.info(
-                            f"Model requested tool call: {part.function_call.name}"
+                            f"Model requested tool call: {part.function_call.name} with args: {part.function_call.args}"
                         )
+                    elif part.text:
+                        logger.info(f"Model returned text: {part.text[:50]}...")
+                    else:
+                        logger.info(f"Model returned non-text/non-func part: {part}")
 
         return final_response
 
@@ -385,12 +403,20 @@ class AIService:
             try:
                 pending = asyncio.all_tasks(loop)
                 if pending:
-                    loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
+                    # Filter out the current task to avoid issues
+                    current = asyncio.current_task(loop)
+                    pending = [t for t in pending if t is not current]
+                    if pending:
+                        loop.run_until_complete(
+                            asyncio.gather(*pending, return_exceptions=True)
+                        )
             except Exception as e:
-                logger.error(f"Error during loop cleanup in run_smart_reply: {e}")
-            loop.close()
+                logger.debug(f"Expected loop cleanup noise: {e}")
+
+            try:
+                loop.close()
+            except Exception:
+                pass
 
     @staticmethod
     async def _run_smart_reply_runner(chat_id: int):
@@ -414,12 +440,30 @@ class AIService:
         async for event in AIService.runner.run_async(
             session_id=session.id, user_id=user_id, new_message=new_message
         ):
+            # Log all events for debugging
+            logger.info(f"Smart Reply ADK Event: {type(event).__name__}")
+
             if event.is_final_response():
                 final_response = "".join(
                     [p.text for p in event.content.parts if p.text]
                 )
+                logger.info(f"Final Smart Reply: {final_response[:100]}...")
             elif event.error_message:
                 logger.error(f"ADK Smart Reply Error: {event.error_message}")
+
+            # Log any parts (including tool calls)
+            if hasattr(event, "content") and event.content:
+                for part in event.content.parts:
+                    if part.function_call:
+                        logger.info(
+                            f"Model requested tool call: {part.function_call.name} with args: {part.function_call.args}"
+                        )
+                    elif part.function_response:
+                        logger.info(
+                            f"Tool response received: {part.function_response.name} = {part.function_response.response}"
+                        )
+                    elif part.text:
+                        logger.debug(f"Smart Reply Text Part: {part.text[:50]}...")
 
         return final_response
 
