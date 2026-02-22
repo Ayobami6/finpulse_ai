@@ -65,7 +65,7 @@ class FreshchatService:
 
         url = f"{self.account_url}/v2/conversations?page={page}"
         try:
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers, timeout=30)
             if response.status_code == 403:
                 logger.error(
                     f"Auth failure (403) from Freshchat. Response: {response.text}. "
@@ -92,7 +92,9 @@ class FreshchatService:
             params["from_time"] = from_time
 
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(
+                url, headers=self.headers, params=params, timeout=30
+            )
             response.raise_for_status()
             return response.json().get("messages", [])
         except Exception as e:
@@ -181,7 +183,9 @@ class FreshchatService:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, json=payload)
+            response = requests.post(
+                url, headers=self.headers, json=payload, timeout=30
+            )
             logger.info(f"Freshchat POST response status: {response.status_code}")
             if response.status_code >= 400:
                 logger.error(

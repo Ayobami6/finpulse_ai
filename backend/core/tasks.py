@@ -5,7 +5,10 @@ from .services.ingestion_service import IngestionService
 from .services.ai_service import AIService
 from .services.system_log_service import SystemLogService
 from .services.freshchat_service import FreshchatService
+import logging
 from .services.whatsapp_service import WhatsAppService
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -34,34 +37,51 @@ def process_new_chat_entry(chat_id):
     """
     Triggers the Agentic Smart Reply pipeline for a single message.
     """
-    print(f"Triggering Smart Reply for chat {chat_id}...")
+    logger.info(f"Triggering Smart Reply task for chat {chat_id}...")
     try:
         chat = ChatEntry.objects.get(id=chat_id)
         result = AIService.run_smart_reply(chat_id)
-        print(f"Smart Reply Result for {chat_id}: {result[:50]}...")
+
+        if not result:
+            logger.warning(f"Smart Reply returned empty result for chat {chat_id}")
+            # Mark as processed anyway to avoid loops
+            chat.processed = True
+            chat.save()
+            return "No result from AI"
+
+        logger.info(f"Smart Reply Result for {chat_id}: {result[:100]}...")
 
         # 1. Send the actual reply if we got one
-        if result:
-            # Check source
-            if chat.metadata.get("conversation_id"):
-                conv_id = chat.metadata.get("conversation_id")
-                print(f"Sending Smart Reply to Freshchat {conv_id}...")
-                FreshchatService().send_message(conv_id, result)
-            elif chat.metadata.get("wa_id") or chat.sender_id.startswith("+"):
-                print(f"Sending Smart Reply to WhatsApp {chat.sender_id}...")
-                # Assuming WhatsAppService takes sender_id and message
-                WhatsAppService().send_message(chat.sender_id, result)
+        # Check source
+        sent = False
+        if chat.metadata.get("conversation_id"):
+            conv_id = chat.metadata.get("conversation_id")
+            logger.info(f"Attempting to send Smart Reply to Freshchat: {conv_id}")
+            service = FreshchatService()
+            send_resp = service.send_message(conv_id, result)
+            if send_resp:
+                logger.info(f"Successfully sent Smart Reply to Freshchat {conv_id}")
+                sent = True
             else:
-                print(f"No source metadata found for chat {chat_id}, reply skipped.")
+                logger.error(f"Failed to send Smart Reply to Freshchat {conv_id}")
+        elif chat.metadata.get("wa_id") or chat.sender_id.startswith("+"):
+            logger.info(f"Attempting to send Smart Reply to WhatsApp: {chat.sender_id}")
+            WhatsAppService().send_message(chat.sender_id, result)
+            sent = True
+        else:
+            logger.warning(
+                f"No source metadata found for chat {chat_id}, reply skipped."
+            )
 
         # 2. Mark as processed
         chat.processed = True
         chat.save()
+        return f"Sent: {sent}"
 
     except ChatEntry.DoesNotExist:
-        print(f"Chat {chat_id} not found.")
+        logger.error(f"Chat {chat_id} not found.")
     except Exception as e:
-        print(f"Error in Smart Reply task for chat {chat_id}: {e}")
+        logger.exception(f"Error in Smart Reply task for chat {chat_id}: {e}")
 
 
 @shared_task

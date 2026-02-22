@@ -127,30 +127,6 @@ def save_recommendations(
 
 
 @sync_to_async
-def reply_to_freshchat(conversation_id: str, message: str):
-    """
-    Sends a reply message to a Freshchat conversation.
-    Use this if the user needs immediate confirmation or a quick troubleshooting tip.
-    """
-    from .freshchat_service import FreshchatService
-
-    service = FreshchatService()
-    return service.send_message(conversation_id, message)
-
-
-@sync_to_async
-def reply_to_whatsapp(sender_id: str, message: str):
-    """
-    Sends a reply message to a WhatsApp user.
-    Use this if the user needs immediate confirmation or a quick troubleshooting tip.
-    """
-    from .whatsapp_service import WhatsAppService
-
-    service = WhatsAppService()
-    return service.send_message(sender_id, message)
-
-
-@sync_to_async
 def notify_internal_team(cluster_id: int):
     """
     Notifies the internal Engineering and Product teams about a confirmed system issue.
@@ -241,13 +217,11 @@ class AIService:
         model="gemini-2.5-flash",
         description="A proactive operations expert who translates analysis into immediate business value.",
         instruction="""
-        You are responsible for CLOSING THE LOOP and satisfying the user.
+        You are responsible for CLOSING THE LOOP and satisfying the user by preparing a professional response.
         
         TOOLS AVAILABLE TO YOU:
         - save_issue_analysis: Saves the grouped theme and sentiment.
         - save_recommendations: Saves actionable recommendations.
-        - reply_to_freshchat: Sends a response to Freshchat users.
-        - reply_to_whatsapp: Sends a response to WhatsApp users.
         - notify_internal_team: Alerts the engineering team about system issues.
 
         INSTRUCTIONS:
@@ -265,8 +239,6 @@ class AIService:
         tools=[
             save_issue_analysis,
             save_recommendations,
-            reply_to_freshchat,
-            reply_to_whatsapp,
             notify_internal_team,
         ],
     )
@@ -340,11 +312,17 @@ class AIService:
                     current = asyncio.current_task(loop)
                     pending = [t for t in pending if t is not current]
                     if pending:
-                        loop.run_until_complete(
-                            asyncio.gather(*pending, return_exceptions=True)
-                        )
+                        try:
+                            loop.run_until_complete(
+                                asyncio.wait_for(
+                                    asyncio.gather(*pending, return_exceptions=True),
+                                    timeout=3.0,
+                                )
+                            )
+                        except Exception as e:
+                            logger.debug(f"Expected loop cleanup noise: {e}")
             except Exception as e:
-                logger.debug(f"Expected loop cleanup noise: {e}")
+                logger.debug(f"Expected loop cleanup error: {e}")
 
             try:
                 loop.close()
@@ -407,11 +385,17 @@ class AIService:
                     current = asyncio.current_task(loop)
                     pending = [t for t in pending if t is not current]
                     if pending:
-                        loop.run_until_complete(
-                            asyncio.gather(*pending, return_exceptions=True)
-                        )
+                        try:
+                            loop.run_until_complete(
+                                asyncio.wait_for(
+                                    asyncio.gather(*pending, return_exceptions=True),
+                                    timeout=3.0,
+                                )
+                            )
+                        except Exception as e:
+                            logger.debug(f"Expected loop cleanup noise: {e}")
             except Exception as e:
-                logger.debug(f"Expected loop cleanup noise: {e}")
+                logger.debug(f"Expected loop cleanup error: {e}")
 
             try:
                 loop.close()

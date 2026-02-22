@@ -11,18 +11,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Setup Django environment
-# Use absolute path to backend
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(BASE_DIR)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from core.services.ai_service import AIService
 from core.models import ChatEntry
+from core.tasks import process_new_chat_entry
 
 
 def reproduce():
-    print("Starting reproduction of MCP wallet balance issue...")
+    print("Starting reproduction of Freshchat delivery issue...")
 
     # 1. Create a dummy ChatEntry
     chat = ChatEntry.objects.create(
@@ -30,21 +29,25 @@ def reproduce():
         source="freshchat",
         sender_id="user_test_123",
         message="I want to check my wallet balance. How much do I have?, my email is ayobamidele006+4@gmail.com",
-        metadata={"conversation_id": "12345"},
+        metadata={
+            "conversation_id": "84203891-d49e-4d7d-ac99-d654c7d80bb2"
+        },  # Use real conversation ID if possible
     )
     print(f"Created chat entry: {chat.id}")
 
     try:
-        # 2. Run the smart reply
-        print("Running AIService.run_smart_reply...")
-        # run_smart_reply is synchronous and manages its own loop
-        result = AIService.run_smart_reply(chat.id)
-        print("\n--- RESULT ---")
+        # 2. Run the task
+        print("Running core.tasks.process_new_chat_entry...")
+        result = process_new_chat_entry(chat.id)
+        print(f"\n--- TASK RESULT ---")
         print(result)
-        print("--------------\n")
+        print("--------------------\n")
 
     except Exception as e:
         print(f"Error during reproduction: {e}")
+        import traceback
+
+        traceback.print_exc()
     finally:
         # Clean up
         chat.delete()
