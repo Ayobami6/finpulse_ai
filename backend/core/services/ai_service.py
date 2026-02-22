@@ -224,7 +224,12 @@ class AIService:
 
     account_assistant = Agent(
         name="AccountAssistant",
-        instruction="You help users manage their Sharppay accounts using the provided MCP tools. You can check wallet balances, see transaction status, and retrieve transaction history.",
+        instruction="""
+        You help users manage their Sharppay accounts using the provided MCP tools.
+        You can check wallet balances, see transaction status, and retrieve transaction history.
+        IMPORTANT: Before calling any tool, you MUST ask the user for their email address (for balance and history) or the specific transaction ID.
+        Do not try to guess or extract these from the background metadata unless the user has explicitly provided them in the current conversation.
+        """,
         tools=[sharppay_toolset],
     )
 
