@@ -36,12 +36,16 @@ import {
 } from "@chakra-ui/react";
 import { Copy, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { integrationService, IntegrationConfig } from "@/services/integrationService";
+import { teamService, TeamMember } from "@/services/teamService";
 
 export default function SettingsPage() {
     const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
+    const [teamLoading, setTeamLoading] = useState(true);
     const [showSecret, setShowSecret] = useState(false);
-    const { isOpen, onOpen, onClose } = useDisclosure();
+    const { isOpen: isIntegrationOpen, onOpen: onIntegrationOpen, onClose: onIntegrationClose } = useDisclosure();
+    const { isOpen: isTeamOpen, onOpen: onTeamOpen, onClose: onTeamClose } = useDisclosure();
     const toast = useToast();
 
     const getWebhookUrl = (source: string) => {
@@ -68,6 +72,12 @@ export default function SettingsPage() {
         is_active: true
     });
 
+    const [teamFormData, setTeamFormData] = useState<TeamMember>({
+        name: '',
+        email: '',
+        department: 'Engineering'
+    });
+
     const fetchIntegrations = async () => {
         try {
             setLoading(true);
@@ -87,11 +97,31 @@ export default function SettingsPage() {
         }
     };
 
+    const fetchTeamMembers = async () => {
+        try {
+            setTeamLoading(true);
+            const data = await teamService.getTeamMembers();
+            setTeamMembers(data);
+        } catch (error) {
+            console.error("Error fetching team members:", error);
+            toast({
+                title: "Error",
+                description: "Failed to load team members.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        } finally {
+            setTeamLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchIntegrations();
+        fetchTeamMembers();
     }, []);
 
-    const handleSave = async () => {
+    const handleSaveIntegration = async () => {
         try {
             await integrationService.saveIntegration(formData);
             toast({
@@ -101,7 +131,7 @@ export default function SettingsPage() {
                 duration: 3000,
                 isClosable: true,
             });
-            onClose();
+            onIntegrationClose();
             fetchIntegrations();
             setFormData({
                 source_type: 'freshchat',
@@ -122,7 +152,36 @@ export default function SettingsPage() {
         }
     };
 
-    const handleDelete = async (id: number) => {
+    const handleSaveTeamMember = async () => {
+        try {
+            await teamService.saveTeamMember(teamFormData);
+            toast({
+                title: "Success",
+                description: "Team member added successfully.",
+                status: "success",
+                duration: 3000,
+                isClosable: true,
+            });
+            onTeamClose();
+            fetchTeamMembers();
+            setTeamFormData({
+                name: '',
+                email: '',
+                department: 'Engineering'
+            });
+        } catch (error) {
+            console.error("Error adding team member:", error);
+            toast({
+                title: "Error",
+                description: "Failed to add team member.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+    };
+
+    const handleDeleteIntegration = async (id: number) => {
         if (!confirm("Are you sure you want to delete this integration?")) return;
         try {
             await integrationService.deleteIntegration(id);
@@ -145,6 +204,29 @@ export default function SettingsPage() {
         }
     };
 
+    const handleDeleteTeamMember = async (id: number) => {
+        if (!confirm("Are you sure you want to remove this team member?")) return;
+        try {
+            await teamService.deleteTeamMember(id);
+            toast({
+                title: "Removed",
+                description: "Team member removed.",
+                status: "info",
+                duration: 3000,
+                isClosable: true,
+            });
+            fetchTeamMembers();
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to remove team member.",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+    };
+
     return (
         <Container maxW="container.md" py={8}>
             <Box mb={8}>
@@ -158,26 +240,38 @@ export default function SettingsPage() {
                 <Box bg="white" borderRadius="lg" shadow="sm" borderWidth="1px" borderColor="gray.100" p={6}>
                     <Heading size="md" mb={2}>Team Management</Heading>
                     <Text fontSize="sm" color="gray.500" mb={6}>
-                        Manage access for Product, Engineering, and Ops team members.
+                        Manage access for Product, Engineering, and Customer Support team members.
                     </Text>
 
-                    <VStack spacing={3} align="stretch">
-                        {["alice@finpulse.com (Product)", "bob@finpulse.com (Engineering)", "charlie@finpulse.com (Ops)"].map((member, i) => (
-                            <Flex key={i} justify="space-between" align="center" p={3} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.100">
-                                <Text fontSize="sm" fontWeight="medium" color="gray.700">{member}</Text>
-                                <IconButton
-                                    aria-label="Delete member"
-                                    variant="ghost"
-                                    colorScheme="red"
-                                    size="xs"
-                                >
-                                    <Icon as={Trash2} boxSize={4} />
-                                </IconButton>
-                            </Flex>
-                        ))}
-                    </VStack>
+                    {teamLoading ? (
+                        <Flex justify="center" py={4}><Spinner /></Flex>
+                    ) : (
+                        <VStack spacing={3} align="stretch">
+                            {teamMembers.length === 0 ? (
+                                <Text fontSize="sm" color="gray.400" textAlign="center" py={4}>No team members added yet.</Text>
+                            ) : (
+                                teamMembers.map((member) => (
+                                    <Flex key={member.id} justify="space-between" align="center" p={3} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.100">
+                                        <Box>
+                                            <Text fontSize="sm" fontWeight="medium" color="gray.700">{member.name}</Text>
+                                            <Text fontSize="xs" color="gray.500">{member.email} • <Badge size="sm" variant="outline" colorScheme="blue">{member.department}</Badge></Text>
+                                        </Box>
+                                        <IconButton
+                                            aria-label="Delete member"
+                                            variant="ghost"
+                                            colorScheme="red"
+                                            size="sm"
+                                            onClick={() => member.id && handleDeleteTeamMember(member.id)}
+                                        >
+                                            <Icon as={Trash2} boxSize={4} />
+                                        </IconButton>
+                                    </Flex>
+                                ))
+                            )}
+                        </VStack>
+                    )}
 
-                    <Button mt={6} w="full" variant="outline" borderStyle="dashed" color="gray.600">
+                    <Button mt={6} w="full" variant="outline" borderStyle="dashed" color="gray.600" onClick={onTeamOpen}>
                         <Icon as={Plus} mr={2} boxSize={4} /> Add Team Member
                     </Button>
                 </Box>
@@ -189,7 +283,7 @@ export default function SettingsPage() {
                             <Heading size="md">Data Integrations</Heading>
                             <Text fontSize="sm" color="gray.500">Connect external data sources for analysis.</Text>
                         </Box>
-                        <Button size="sm" colorScheme="purple" leftIcon={<Plus size={16} />} onClick={onOpen}>
+                        <Button size="sm" colorScheme="purple" leftIcon={<Plus size={16} />} onClick={onIntegrationOpen}>
                             Add Source
                         </Button>
                     </Flex>
@@ -238,7 +332,7 @@ export default function SettingsPage() {
                                                 variant="ghost"
                                                 colorScheme="red"
                                                 size="sm"
-                                                onClick={() => integration.id && handleDelete(integration.id)}
+                                                onClick={() => integration.id && handleDeleteIntegration(integration.id)}
                                             >
                                                 <Icon as={Trash2} boxSize={4} />
                                             </IconButton>
@@ -291,7 +385,7 @@ export default function SettingsPage() {
             </VStack>
 
             {/* Add Integration Modal */}
-            <Modal isOpen={isOpen} onClose={onClose}>
+            <Modal isOpen={isIntegrationOpen} onClose={onIntegrationClose}>
                 <ModalOverlay />
                 <ModalContent>
                     <ModalHeader>Add Data Source</ModalHeader>
@@ -355,8 +449,55 @@ export default function SettingsPage() {
                     </ModalBody>
 
                     <ModalFooter>
-                        <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
-                        <Button colorScheme="purple" onClick={handleSave}>Save Integration</Button>
+                        <Button variant="ghost" mr={3} onClick={onIntegrationClose}>Cancel</Button>
+                        <Button colorScheme="purple" onClick={handleSaveIntegration}>Save Integration</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Add Team Member Modal */}
+            <Modal isOpen={isTeamOpen} onClose={onTeamClose}>
+                <ModalOverlay />
+                <ModalContent>
+                    <ModalHeader>Add Team Member</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody>
+                        <VStack spacing={4}>
+                            <FormControl isRequired>
+                                <FormLabel fontSize="sm">Full Name</FormLabel>
+                                <Input
+                                    placeholder="e.g. Ayobami"
+                                    value={teamFormData.name}
+                                    onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
+                                />
+                            </FormControl>
+                            <FormControl isRequired>
+                                <FormLabel fontSize="sm">Email Address</FormLabel>
+                                <Input
+                                    type="email"
+                                    placeholder="e.g. ayo@finpulse.ai"
+                                    value={teamFormData.email}
+                                    onChange={(e) => setTeamFormData({ ...teamFormData, email: e.target.value })}
+                                />
+                            </FormControl>
+                            <FormControl isRequired>
+                                <FormLabel fontSize="sm">Department</FormLabel>
+                                <Select
+                                    value={teamFormData.department}
+                                    onChange={(e) => setTeamFormData({ ...teamFormData, department: e.target.value })}
+                                >
+                                    <option value="Engineering">Engineering</option>
+                                    <option value="Product">Product</option>
+                                    <option value="Customer Support">Customer Support</option>
+                                    <option value="Operations">Operations</option>
+                                </Select>
+                            </FormControl>
+                        </VStack>
+                    </ModalBody>
+
+                    <ModalFooter>
+                        <Button variant="ghost" mr={3} onClick={onTeamClose}>Cancel</Button>
+                        <Button colorScheme="purple" onClick={handleSaveTeamMember}>Add Member</Button>
                     </ModalFooter>
                 </ModalContent>
             </Modal>
