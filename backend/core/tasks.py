@@ -4,6 +4,8 @@ from django.utils import timezone
 from .services.ingestion_service import IngestionService
 from .services.ai_service import AIService
 from .services.system_log_service import SystemLogService
+from .services.freshchat_service import FreshchatService
+from .services.whatsapp_service import WhatsAppService
 
 
 @shared_task
@@ -34,8 +36,30 @@ def process_new_chat_entry(chat_id):
     """
     print(f"Triggering Smart Reply for chat {chat_id}...")
     try:
+        chat = ChatEntry.objects.get(id=chat_id)
         result = AIService.run_smart_reply(chat_id)
         print(f"Smart Reply Result for {chat_id}: {result[:50]}...")
+
+        # 1. Send the actual reply if we got one
+        if result:
+            # Check source
+            if chat.metadata.get("conversation_id"):
+                conv_id = chat.metadata.get("conversation_id")
+                print(f"Sending Smart Reply to Freshchat {conv_id}...")
+                FreshchatService().send_message(conv_id, result)
+            elif chat.metadata.get("wa_id") or chat.sender_id.startswith("+"):
+                print(f"Sending Smart Reply to WhatsApp {chat.sender_id}...")
+                # Assuming WhatsAppService takes sender_id and message
+                WhatsAppService().send_message(chat.sender_id, result)
+            else:
+                print(f"No source metadata found for chat {chat_id}, reply skipped.")
+
+        # 2. Mark as processed
+        chat.processed = True
+        chat.save()
+
+    except ChatEntry.DoesNotExist:
+        print(f"Chat {chat_id} not found.")
     except Exception as e:
         print(f"Error in Smart Reply task for chat {chat_id}: {e}")
 

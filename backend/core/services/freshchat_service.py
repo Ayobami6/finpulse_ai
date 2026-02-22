@@ -182,7 +182,11 @@ class FreshchatService:
 
         try:
             response = requests.post(url, headers=self.headers, json=payload)
-            print("response from freshchat: ", response.text)
+            logger.info(f"Freshchat POST response status: {response.status_code}")
+            if response.status_code >= 400:
+                logger.error(
+                    f"Freshchat API Error ({response.status_code}): {response.text}"
+                )
             response.raise_for_status()
             return response.json()
         except Exception as e:

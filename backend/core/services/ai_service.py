@@ -94,6 +94,7 @@ def save_issue_analysis(
         cluster.sentiment_score = sentiment
         if root_cause:
             cluster.root_cause_analysis = root_cause
+        cluster.trend = "STABLE"
         cluster.save()
     return cluster.id
 
@@ -235,22 +236,30 @@ class AIService:
         description="A proactive operations expert who translates analysis into immediate business value.",
         instruction="""
         You are responsible for CLOSING THE LOOP and satisfying the user.
-        1. Call save_issue_analysis FIRST to save the theme, sentiment, and root cause.
-        2. CAPTURE the cluster_id returned by save_issue_analysis.
-        3. Use that EXACT cluster_id to call save_recommendations.
-        4. If you identify a definite system issue (via SystemTriage), use the appropriate reply tool to send a brief, empathetic response to the user:
-           - Use reply_to_freshchat if the source is 'freshchat' (use conversation_id from metadata).
-           - Use reply_to_whatsapp if the source is 'whatsapp' (use sender_id/phone number).
-           Example: "I've detected a Stripe connection issue on our end and our team is already on it. Sorry for the trouble!"
-        5. MANDATORY: If a definite system issue is identified, call notify_internal_team with the cluster_id returned by save_issue_analysis.
-        6. Confirm to the Supervisor once ALL tools were called successfully.
-        MANDATORY: You MUST call the tools. Do not just describe what should be saved.
+        
+        TOOLS AVAILABLE TO YOU:
+        - save_issue_analysis: Saves the grouped theme and sentiment.
+        - save_recommendations: Saves actionable recommendations.
+        - reply_to_freshchat: Sends a response to Freshchat users.
+        - reply_to_whatsapp: Sends a response to WhatsApp users.
+        - notify_internal_team: Alerts the engineering team about system issues.
+
+        INSTRUCTIONS:
+        1. Call save_issue_analysis FIRST. CAPTURE the returned cluster_id.
+        2. Call save_recommendations with that exact cluster_id.
+        3. If a definite technical system issue is identified, call notify_internal_team.
+        4. Based on your findings, formulate a helpful, empathetic, and professional response for the user.
+           - If it's a system error: "I've detected a synchronization issue with our payment provider. Our team is already working on it. Sorry for the delay!"
+           - If it's a general query: Provide the answer directly.
+        5. DO NOT call non-existent tools like 'transfer_to_agent'.
+        6. Confirm to the Supervisor once ALL necessary tools have been called and PROVIDE the final message text in your conclusion.
+        MANDATORY: You MUST call the saving tools. Your session conclusion should be the response to the user.
         """,
         tools=[
             save_issue_analysis,
             save_recommendations,
             reply_to_freshchat,
-            # reply_to_whatsapp,
+            reply_to_whatsapp,
             notify_internal_team,
         ],
     )
@@ -276,14 +285,15 @@ class AIService:
         description="The high-level orchestrator of the FinPulse AI intelligence loop.",
         instruction="""
         You are a PIPELINE EXECUTOR.
-        1. Start by calling GroupingAgent with all provided data to define the cluster.
-        2. Once grouped, call IssueAnalyzer for sentiment and pillars.
-        3. THEN CALL SystemTriage with those findings to correlate with logs.
-        4. If the user's issue relates to their Sharppay account (balance, transactions), call AccountAssistant.
-        5. FINALLY CALL ActionSpecialist to save the data.
-        CRITICAL: Confirm with ActionSpecialist that save_issue_analysis AND save_recommendations were successfully called.
-        IF ANY TOOL CALL FAILS, RETRY OR INFORM THE USER.
-        DO NOT END THE SESSION UNTIL EVERYTHING IS SAVED.
+        1. Call GroupingAgent to define/update the issue cluster.
+        2. Call IssueAnalyzer for sentiment and pillar categorization.
+        3. Call SystemTriage to correlate with logs.
+        4. If the user asks about their account (balance, transactions), call AccountAssistant.
+        5. FINALLY CALL ActionSpecialist to save all findings.
+        6. CRITICAL: Your FINAL RESPONSE to the orchestrator MUST be the exact, user-friendly message intended for the customer.
+           - DO NOT return technical summaries or "Everything saved" logs.
+           - ONLY return the message string (e.g., "Hello! Your account balance is...")
+        DO NOT END THE SESSION until everything is saved.
         """,
         sub_agents=[
             grouping_agent,
