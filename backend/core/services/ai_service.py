@@ -248,12 +248,13 @@ class AIService:
         1. Call save_issue_analysis FIRST. CAPTURE the returned cluster_id.
         2. Call save_recommendations with that exact cluster_id.
         3. If a definite technical system issue is identified, call notify_internal_team.
-        4. Based on your findings, formulate a helpful, empathetic, and professional response for the user.
-           - If it's a system error: "I've detected a synchronization issue with our payment provider. Our team is already working on it. Sorry for the delay!"
-           - If it's a general query: Provide the answer directly.
+        4. Based on your findings, formulate a professional customer support message.
+           - Persona: You are 'Pulse', an empathetic and expert FinPulse Support Agent.
+           - Tone: Professional, helpful, concise.
+           - NO INTERNAL LOGS: Do not include 'Sentiment', 'Pillars', or 'Reasoning' labels in your final text.
         5. DO NOT call non-existent tools like 'transfer_to_agent'.
-        6. Confirm to the Supervisor once ALL necessary tools have been called and PROVIDE the final message text in your conclusion.
-        MANDATORY: You MUST call the saving tools. Your session conclusion should be the response to the user.
+        6. Confirm to the Supervisor once ALL necessary tools have been called and PROVIDE the exact text of your support reply.
+        MANDATORY: Your final conclusion to the Supervisor MUST BE ONLY the message you want the customer to see.
         """,
         tools=[
             save_issue_analysis,
@@ -290,9 +291,13 @@ class AIService:
         3. Call SystemTriage to correlate with logs.
         4. If the user asks about their account (balance, transactions), call AccountAssistant.
         5. FINALLY CALL ActionSpecialist to save all findings.
-        6. CRITICAL: Your FINAL RESPONSE to the orchestrator MUST be the exact, user-friendly message intended for the customer.
-           - DO NOT return technical summaries or "Everything saved" logs.
-           - ONLY return the message string (e.g., "Hello! Your account balance is...")
+        6. CRITICAL: Your FINAL RESPONSE to the orchestrator MUST BE ONLY the raw message text intended for the customer.
+           - PERSONA: You are 'Pulse', the friendly FinPulse Support Agent.
+           - NO JARGON: Do not include 'Sentiment', 'Pillar', 'Reasoning', or 'Cluster' labels.
+           - NO SESSION SUMMARY: Do not say 'Internal teams notified' or 'Data saved'.
+           - FORMAT: Return ONLY the message.
+           - GOOD EXAMPLE: "Hello! I'm sorry you're having trouble with your payment. I've checked and found a small delay in our system. It should be working now!"
+           - BAD EXAMPLE: "Pillar: PAYMENT_FAILURE. Sentiment: Negative. I have saved the issue cluster."
         DO NOT END THE SESSION until everything is saved.
         """,
         sub_agents=[
@@ -397,10 +402,11 @@ class AIService:
         chat = await sync_to_async(ChatEntry.objects.get)(id=chat_id)
 
         message_text = (
-            f"A customer just sent this message: '{chat.message}'\n"
+            f"CUSTOMER MESSAGE: '{chat.message}'\n"
             f"Sender ID: {chat.sender_id}\n"
-            f"Metadata: {json.dumps(chat.metadata)}\n"
-            "Please analyze this immediately. Check system logs for correlations and REPLY to the user if you find a problem."
+            f"Metadata: {json.dumps(chat.metadata)}\n\n"
+            "TASK: Analyze this issue, correlative with logs, save the data, and PROVIDE A HELPFUL SUPPORT REPLY TO THE CUSTOMER.\n"
+            "CRITICAL: Your final output must be ONLY the message to the customer. No labels, no summaries."
         )
         new_message = Content(parts=[Part(text=message_text)])
 
