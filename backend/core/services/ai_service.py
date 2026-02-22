@@ -8,6 +8,8 @@ from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel, Field
 from google.adk.agents.llm_agent import Agent
+from google.adk.tools import McpToolset
+from google.adk.tools.mcp_tool import SseConnectionParams
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
@@ -216,6 +218,16 @@ class AIService:
         ],
     )
 
+    sharppay_toolset = McpToolset(
+        connection_params=SseConnectionParams(url="http://localhost:8081/sse")
+    )
+
+    account_assistant = Agent(
+        name="AccountAssistant",
+        instruction="You help users manage their Sharppay accounts using the provided MCP tools. You can check wallet balances, see transaction status, and retrieve transaction history.",
+        tools=[sharppay_toolset],
+    )
+
     supervisor = Agent(
         name="Supervisor",
         model="gemini-2.5-flash",
@@ -225,11 +237,18 @@ class AIService:
         1. Start by calling GroupingAgent with all provided data to define the cluster.
         2. Once grouped, call IssueAnalyzer for sentiment and pillars.
         3. THEN CALL SystemTriage with those findings to correlate with logs.
-        4. FINALLY CALL ActionSpecialist to save the data.
+        4. If the user's issue relates to their Sharppay account (balance, transactions), call AccountAssistant.
+        5. FINALLY CALL ActionSpecialist to save the data.
         CRITICAL: Ensure ActionSpecialist confirms that tools save_issue_analysis AND save_recommendations were successfully called.
         DO NOT END THE SESSION UNTIL EVERYTHING IS SAVED.
         """,
-        sub_agents=[grouping_agent, analyzer_agent, triage_agent, action_agent],
+        sub_agents=[
+            grouping_agent,
+            analyzer_agent,
+            triage_agent,
+            action_agent,
+            account_assistant,
+        ],
     )
 
     runner = Runner(
