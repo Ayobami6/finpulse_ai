@@ -71,9 +71,7 @@ def run_clustering_task():
             {
                 "id": c.id,
                 "message": c.message,
-                "conversation_id": (
-                    c.metadata.get("conversation_id") if c.metadata else None
-                ),
+                "conversation_id": (c.metadata.get("conversation_id")),
                 "timestamp": str(c.timestamp),
                 "sender_id": c.sender_id,
                 "metadata": c.metadata,

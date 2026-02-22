@@ -86,6 +86,7 @@ def save_issue_analysis(
             "description": description,
             "sentiment_score": sentiment,
             "root_cause_analysis": root_cause or "",
+            "trend": "STABLE",
         },
     )
     if not created:
@@ -234,21 +235,22 @@ class AIService:
         description="A proactive operations expert who translates analysis into immediate business value.",
         instruction="""
         You are responsible for CLOSING THE LOOP and satisfying the user.
-        1. Use save_issue_analysis to save the theme, sentiment, and root cause.
-        2. Use save_recommendations to save action items for the cluster.
-        3. If you identify a definite system issue (via SystemTriage), use the appropriate reply tool to send a brief, empathetic response to the user:
+        1. Call save_issue_analysis FIRST to save the theme, sentiment, and root cause.
+        2. CAPTURE the cluster_id returned by save_issue_analysis.
+        3. Use that EXACT cluster_id to call save_recommendations.
+        4. If you identify a definite system issue (via SystemTriage), use the appropriate reply tool to send a brief, empathetic response to the user:
            - Use reply_to_freshchat if the source is 'freshchat' (use conversation_id from metadata).
            - Use reply_to_whatsapp if the source is 'whatsapp' (use sender_id/phone number).
            Example: "I've detected a Stripe connection issue on our end and our team is already on it. Sorry for the trouble!"
-        4. MANDATORY: If a definite system issue is identified, call notify_internal_team with the cluster_id returned by save_issue_analysis.
-        5. Confirm to the Supervisor once tools are called.
+        5. MANDATORY: If a definite system issue is identified, call notify_internal_team with the cluster_id returned by save_issue_analysis.
+        6. Confirm to the Supervisor once ALL tools were called successfully.
         MANDATORY: You MUST call the tools. Do not just describe what should be saved.
         """,
         tools=[
             save_issue_analysis,
             save_recommendations,
             reply_to_freshchat,
-            reply_to_whatsapp,
+            # reply_to_whatsapp,
             notify_internal_team,
         ],
     )
@@ -279,7 +281,8 @@ class AIService:
         3. THEN CALL SystemTriage with those findings to correlate with logs.
         4. If the user's issue relates to their Sharppay account (balance, transactions), call AccountAssistant.
         5. FINALLY CALL ActionSpecialist to save the data.
-        CRITICAL: Ensure ActionSpecialist confirms that tools save_issue_analysis AND save_recommendations were successfully called.
+        CRITICAL: Confirm with ActionSpecialist that save_issue_analysis AND save_recommendations were successfully called.
+        IF ANY TOOL CALL FAILS, RETRY OR INFORM THE USER.
         DO NOT END THE SESSION UNTIL EVERYTHING IS SAVED.
         """,
         sub_agents=[
