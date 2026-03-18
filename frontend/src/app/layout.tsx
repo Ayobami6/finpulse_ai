@@ -25,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={geistSans.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={geistSans.className} suppressHydrationWarning>
         <Providers>
           <div className="flex h-screen bg-gray-50">
             <Sidebar />
